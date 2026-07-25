@@ -6,6 +6,7 @@ const { McpServer } = require("@modelcontextprotocol/sdk/server/mcp.js");
 const { StdioServerTransport } = require("@modelcontextprotocol/sdk/server/stdio.js");
 const { z } = require("zod");
 const { listSaveCheckpoints } = require("./read/save-inventory");
+const { latestSaveCheckpoint } = require("./read/latest-save");
 const { validateActionPreview } = require("./control/action-gate");
 const { COMMANDS, prepareNavigationCommand } = require("./control/navigation-commands");
 
@@ -31,6 +32,25 @@ server.registerTool(
       return { content: [{ type: "text", text: JSON.stringify(listSaveCheckpoints(input), null, 2) }] };
     } catch (error) {
       return { isError: true, content: [{ type: "text", text: `Safe save inventory error: ${error.message}` }] };
+    }
+  }
+);
+
+server.registerTool(
+  "eu5_observe_checkpoint",
+  {
+    title: "Observe the latest EU5 save checkpoint",
+    description: "Fast metadata-only observation of the newest .eu5 save. Never reads save content or sends game input.",
+    inputSchema: {
+      saveDirectory: z.string().min(1).optional().describe("Optional absolute save directory. Defaults to EU5_SAVE_DIRECTORY."),
+    },
+    annotations: { readOnlyHint: true, destructiveHint: false }
+  },
+  async (input) => {
+    try {
+      return { content: [{ type: "text", text: JSON.stringify(latestSaveCheckpoint(input.saveDirectory), null, 2) }] };
+    } catch (error) {
+      return { isError: true, content: [{ type: "text", text: `Fast checkpoint observation error: ${error.message}` }] };
     }
   }
 );

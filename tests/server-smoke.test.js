@@ -26,6 +26,7 @@ test("MCP server lists and runs its read-only tools", async (t) => {
   const { tools } = await client.listTools();
   assert.deepEqual(tools.map((tool) => tool.name).sort(), [
     "eu5_list_save_checkpoints",
+    "eu5_observe_checkpoint",
     "eu5_prepare_navigation_command",
     "eu5_preview_action"
   ]);
@@ -35,6 +36,12 @@ test("MCP server lists and runs its read-only tools", async (t) => {
     arguments: { name: "focus_capital" }
   });
   assert.equal(JSON.parse(navigation.content[0].text).hotkey, "ctrl+alt+c");
+
+  const checkpoint = await client.callTool({
+    name: "eu5_observe_checkpoint",
+    arguments: { saveDirectory: root }
+  });
+  assert.equal(JSON.parse(checkpoint.content[0].text).latest.relativePath, "fixture.eu5");
 
   const result = await client.callTool({
     name: "eu5_list_save_checkpoints",

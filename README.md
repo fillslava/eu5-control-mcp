@@ -27,6 +27,9 @@ Git and is never committed.
 - `eu5_prepare_navigation_command` returns a finite, tested hotkey procedure
   for the existing Windows MCP adapter. Version 0.1 contains camera, panel,
   alert, search and panel-close navigation only.
+- `eu5_observe_checkpoint` returns the newest save's name, size and timestamp
+  without hashing or parsing every save file. Use it as a fast checkpoint;
+  use the full inventory before and after consequential actions.
 
 For a non-standard save directory, supply its absolute path and repeat it as
 `confirmedSaveDirectory`. Subfolders are excluded unless explicitly requested.
