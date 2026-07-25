@@ -4,7 +4,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { WindowsExecutor } = require("../src/control/windows-executor");
 
-function fakeExecutor({ failFocus = false, toolResults = {} } = {}) {
+function fakeExecutor({ failFocus = false, safeFocusPoint, toolResults = {} } = {}) {
   const calls = [];
   const client = {
     connect: async () => calls.push("connect"),
@@ -21,6 +21,7 @@ function fakeExecutor({ failFocus = false, toolResults = {} } = {}) {
     calls,
     executor: new WindowsExecutor({
       enabled: true,
+      safeFocusPoint,
       createClient: () => client,
       createTransport: () => ({})
     })
@@ -46,8 +47,10 @@ test("Windows executor focuses EU5 before dispatching an allowlisted shortcut", 
     { name: "Shortcut", arguments: { shortcut: "ctrl+f2" } }
   ]);
   assert.deepEqual(result.windowsMcpResults, {
+    focusMethod: "app-switch",
     focus: "App ok",
     focusVerification: "WaitFor ok",
+    primaryFocusError: null,
     shortcut: "Shortcut ok"
   });
 });
@@ -122,4 +125,102 @@ test("Windows executor rejects hotkeys outside the finite navigation catalog", a
     /only accepts catalogued EU5 navigation hotkeys/
   );
   assert.deepEqual(calls, []);
+});
+
+test("Windows executor falls back to one configured safe point before the allowlisted shortcut", async () => {
+  const { executor, calls } = fakeExecutor({
+    safeFocusPoint: "6200,1500",
+    toolResults: {
+      App: {
+        isError: true,
+        content: [{ type: "text", text: "Europa Universalis V window not found." }]
+      }
+    }
+  });
+
+  const result = await executor.executeNavigation({
+    hotkey: "ctrl+f2",
+    safeFocusPoint: "1,1"
+  });
+
+  assert.deepEqual(calls, [
+    "connect",
+    { name: "App", arguments: { mode: "switch", name: "Europa Universalis V" } },
+    {
+      name: "Click",
+      arguments: { loc: [6200, 1500], button: "left", clicks: 1 }
+    },
+    { name: "Shortcut", arguments: { shortcut: "ctrl+f2" } }
+  ]);
+  assert.deepEqual(result.windowsMcpResults, {
+    focusMethod: "safe-point-click",
+    focus: "Click ok",
+    focusVerification: null,
+    primaryFocusError: "Windows MCP App failed: Europa Universalis V window not found.",
+    shortcut: "Shortcut ok"
+  });
+});
+
+test("Windows executor uses the safe point when active-window verification is unavailable", async () => {
+  const { executor, calls } = fakeExecutor({
+    safeFocusPoint: "6200,1500",
+    toolResults: {
+      WaitFor: {
+        isError: true,
+        content: [{ type: "text", text: "Timed out waiting for 'active_window'." }]
+      }
+    }
+  });
+
+  const result = await executor.executeNavigation({ hotkey: "ctrl+f2" });
+  assert.equal(result.windowsMcpResults.focusMethod, "safe-point-click");
+  assert.deepEqual(
+    calls.filter((call) => typeof call === "object").map((call) => call.name),
+    ["App", "WaitFor", "Click", "Shortcut"]
+  );
+});
+
+test("Windows executor stops before shortcut when the safe-point click fails", async () => {
+  const { executor, calls } = fakeExecutor({
+    safeFocusPoint: "6200,1500",
+    toolResults: {
+      App: {
+        isError: true,
+        content: [{ type: "text", text: "window not found" }]
+      },
+      Click: {
+        isError: true,
+        content: [{ type: "text", text: "click unavailable" }]
+      }
+    }
+  });
+
+  await assert.rejects(
+    () => executor.executeNavigation({ hotkey: "ctrl+f2" }),
+    /could not focus EU5 by window name or configured safe point.*click unavailable/
+  );
+  assert.equal(calls.some((call) => call.name === "Shortcut"), false);
+});
+
+test("Windows executor validates safe focus coordinates at startup", () => {
+  assert.throws(
+    () =>
+      new WindowsExecutor({
+        enabled: true,
+        safeFocusPoint: "6200;1500",
+        createClient: () => null,
+        createTransport: () => null
+      }),
+    /exactly two integer coordinates/
+  );
+  assert.throws(
+    () =>
+      new WindowsExecutor({
+        enabled: true,
+        safeFocusPoint: "40000,1500",
+        createClient: () => null,
+        createTransport: () => null
+      }),
+    /coordinates must be between/
+  );
 });
