@@ -37,7 +37,7 @@ test("MCP server lists and runs its read-only tools", async (t) => {
     name: "eu5_prepare_navigation_command",
     arguments: { name: "focus_capital" }
   });
-  assert.equal(JSON.parse(navigation.content[0].text).hotkey, "ctrl+alt+c");
+  assert.equal(JSON.parse(navigation.content[0].text).hotkey, "ctrl+f11");
 
   const issued = await client.callTool({
     name: "eu5_issue_navigation_command",

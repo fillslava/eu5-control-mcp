@@ -2,44 +2,34 @@
 
 const COMMANDS = Object.freeze({
   focus_capital: {
-    hotkey: "ctrl+alt+c",
+    hotkey: "ctrl+f11",
     expectedVisibleResult: "The map camera centers on the controlled country's capital.",
     risk: "read_only"
   },
   open_economy: {
-    hotkey: "ctrl+alt+e",
+    hotkey: "ctrl+f2",
     expectedVisibleResult: "The Economy panel is open.",
     risk: "read_only"
   },
   open_diplomacy: {
-    hotkey: "ctrl+alt+u",
+    hotkey: "ctrl+f5",
     expectedVisibleResult: "The Diplomacy panel is open.",
     risk: "read_only"
   },
   open_military: {
-    hotkey: "ctrl+alt+h",
+    hotkey: "ctrl+f6",
     expectedVisibleResult: "The Military panel is open.",
     risk: "read_only"
   },
   open_alerts: {
-    hotkey: "ctrl+alt+t",
+    hotkey: "ctrl+f9",
     expectedVisibleResult: "The alerts menu is visible.",
     risk: "read_only"
   },
   find_province: {
-    hotkey: "ctrl+alt+q",
+    hotkey: "ctrl+f10",
     expectedVisibleResult: "The province search interface is open without selecting a result.",
     risk: "read_only"
-  },
-  close_left_panel: {
-    hotkey: "ctrl+alt+j",
-    expectedVisibleResult: "The left-side panel is closed when one is open.",
-    risk: "reversible"
-  },
-  close_right_panel: {
-    hotkey: "ctrl+alt+k",
-    expectedVisibleResult: "The right-side panel is closed when one is open.",
-    risk: "reversible"
   }
 });
 
