@@ -27,6 +27,9 @@ Git and is never committed.
 - `eu5_prepare_navigation_command` returns a finite, tested hotkey procedure
   for the existing Windows MCP adapter. Version 0.1 contains camera, panel,
   alert, search and panel-close navigation only.
+- `eu5_issue_navigation_command` accepts a UI observation that is at most two
+  seconds old and confirms the game is paused, modal-free and not in a text
+  field before returning a navigation procedure for Windows MCP.
 - `eu5_observe_checkpoint` returns the newest save's name, size and timestamp
   without hashing or parsing every save file. Use it as a fast checkpoint;
   use the full inventory before and after consequential actions.

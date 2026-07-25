@@ -9,6 +9,7 @@ const { listSaveCheckpoints } = require("./read/save-inventory");
 const { latestSaveCheckpoint } = require("./read/latest-save");
 const { validateActionPreview } = require("./control/action-gate");
 const { COMMANDS, prepareNavigationCommand } = require("./control/navigation-commands");
+const { validateFreshNavigationObservation } = require("./control/command-gate");
 
 const server = new McpServer({
   name: "eu5-control-mcp",
@@ -68,6 +69,34 @@ server.registerTool(
   async ({ name }) => ({
     content: [{ type: "text", text: JSON.stringify(prepareNavigationCommand(name), null, 2) }]
   })
+);
+
+server.registerTool(
+  "eu5_issue_navigation_command",
+  {
+    title: "Issue a guarded EU5 navigation command",
+    description: "Validate a fresh paused UI observation, then return one Windows-MCP hotkey procedure. Never sends input itself.",
+    inputSchema: {
+      name: z.enum(Object.keys(COMMANDS)),
+      observation: z.object({
+        id: z.string().min(1),
+        capturedAtUtc: z.string().datetime(),
+        paused: z.boolean(),
+        modalPresent: z.boolean(),
+        textEntryFocused: z.boolean()
+      })
+    },
+    annotations: { readOnlyHint: true, destructiveHint: false }
+  },
+  async ({ name, observation }) => {
+    const verified = validateFreshNavigationObservation(observation);
+    return {
+      content: [{
+        type: "text",
+        text: JSON.stringify({ ...prepareNavigationCommand(name), observationId: verified.id }, null, 2)
+      }]
+    };
+  }
 );
 
 server.registerTool(
