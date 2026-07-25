@@ -1,0 +1,8 @@
+node_modules/
+coverage/
+.env
+*.log
+
+# EU5 runtime data is never versioned here.
+*.eu5
+user_bindings/
