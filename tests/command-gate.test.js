@@ -13,7 +13,7 @@ const valid = {
   textEntryFocused: false
 };
 
-test("fresh paused observations issue navigation commands", () => {
+test("fresh paused observations validate navigation preparation", () => {
   assert.equal(validateFreshNavigationObservation(valid, now).id, "ui-001");
 });
 

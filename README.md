@@ -5,9 +5,9 @@ This repository starts with a deliberately narrow design:
 1. **Read state first.** Local save metadata is inventoried without altering a
    save or requiring an EU5 process.
 2. **Model proposed actions.** An action has a preview, risk class, evidence,
-   and a confirmation requirement before an executor can receive it.
-3. **Keep UI control separate.** A future Windows-MCP adapter may perform a
-   verified UI workflow, but it must never write game files or bypass the gate.
+   and a confirmation requirement before an external controller can receive it.
+3. **Keep UI control separate.** This MCP prepares and validates finite direct
+   Windows MCP procedures, but it never sends keyboard or mouse input.
 
 ## Current runnable tools
 
@@ -25,11 +25,12 @@ Git and is never committed.
 - `eu5_preview_action` validates a proposed action contract. It never sends
   keyboard or mouse input to EU5.
 - `eu5_prepare_navigation_command` returns a finite, tested hotkey procedure
-  for the existing Windows MCP adapter. Version 0.1 contains camera, panel,
-  alert, search and panel-close navigation only.
+  for a coordinator to send through its direct Windows MCP session. Version 0.1
+  contains camera, panel, alert and search navigation only.
 - `eu5_issue_navigation_command` accepts a UI observation that is at most two
   seconds old and confirms the game is paused, modal-free and not in a text
-  field before returning a navigation procedure for Windows MCP.
+  field before returning a direct Windows MCP procedure. Despite the legacy
+  tool name, it validates and returns the procedure; it does not issue input.
 - `eu5_observe_checkpoint` returns the newest save's name, size and timestamp
   without hashing or parsing every save file. Use it as a fast checkpoint;
   use the full inventory before and after consequential actions.
@@ -41,21 +42,21 @@ The MCP deliberately does not expose save/load, speed, construction, military
 orders, diplomacy confirmation, or war macros. Those require a separate
 confirmation-gated workflow with a verified visible result.
 
-## Windows MCP execution bridge
+## Direct Windows MCP handoff
 
-Set `EU5_ENABLE_WINDOWS_EXECUTION=true` only in the local `.env` to enable the
-finite navigation allowlist through a nested `windows-mcp` client. Each command
-first focuses **Europa Universalis V**, then dispatches exactly one registered
-hotkey. Its result means only that input was sent; a fresh UI observation must
-verify the panel or camera result. Save/load, speed, military, economy and
-diplomacy actions are not routed through this bridge.
+The custom MCP has no Windows MCP client and no input-execution tool. It returns
+an allowlisted `Shortcut` procedure only after applying its local validation
+rules. A coordinator may then use its own direct Windows MCP session to focus
+**Europa Universalis V**, send the exact procedure, capture a fresh UI
+observation, and verify the expected panel or camera result. The procedure is
+never evidence that input was sent or accepted.
 
 ## Initial milestones
 
 - `0.1.x`: save inventory and structured action contracts; no live-game
   control.
 - `0.2.x`: read-only parser for validated save fixtures.
-- `0.3.x`: preview-only UI workflows for economy, diplomacy and military.
+- `0.3.x`: preparation-only UI workflows for economy, diplomacy and military.
 - `1.0.x`: confirmed, auditable control workflows after each is tested on a
   disposable campaign.
 

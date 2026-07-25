@@ -25,7 +25,6 @@ test("MCP server lists and runs its read-only tools", async (t) => {
 
   const { tools } = await client.listTools();
   assert.deepEqual(tools.map((tool) => tool.name).sort(), [
-    "eu5_execute_navigation_command",
     "eu5_issue_navigation_command",
     "eu5_list_save_checkpoints",
     "eu5_observe_checkpoint",
@@ -37,7 +36,13 @@ test("MCP server lists and runs its read-only tools", async (t) => {
     name: "eu5_prepare_navigation_command",
     arguments: { name: "focus_capital" }
   });
-  assert.equal(JSON.parse(navigation.content[0].text).hotkey, "ctrl+f11");
+  const preparedNavigation = JSON.parse(navigation.content[0].text);
+  assert.equal(preparedNavigation.hotkey, "ctrl+f11");
+  assert.deepEqual(preparedNavigation.directWindowsMcpProcedure, {
+    tool: "Shortcut",
+    arguments: { shortcut: "ctrl+f11" }
+  });
+  assert.equal("executor" in preparedNavigation, false);
 
   const issued = await client.callTool({
     name: "eu5_issue_navigation_command",
@@ -52,7 +57,9 @@ test("MCP server lists and runs its read-only tools", async (t) => {
       }
     }
   });
-  assert.equal(JSON.parse(issued.content[0].text).observationId, "smoke-ui");
+  const issuedNavigation = JSON.parse(issued.content[0].text);
+  assert.equal(issuedNavigation.observationId, "smoke-ui");
+  assert.equal("dispatched" in issuedNavigation, false);
 
   const checkpoint = await client.callTool({
     name: "eu5_observe_checkpoint",

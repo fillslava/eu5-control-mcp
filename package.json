@@ -2,7 +2,7 @@
   "name": "eu5-control-mcp",
   "version": "0.1.0",
   "private": true,
-  "description": "Safety-first EU5 state reader and UI-control MCP scaffold.",
+  "description": "Safety-first EU5 state reader and navigation-procedure MCP.",
   "type": "commonjs",
   "scripts": {
     "start": "node src/server.js",

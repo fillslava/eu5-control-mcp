@@ -1,13 +1,12 @@
-# EU5 scripted navigation command catalog
+# EU5 navigation command catalog
 
-`scripts/Invoke-EU5Navigation.ps1` is a local, standalone Windows runner for a
-finite set of EU5 navigation shortcuts. It is intended to be invoked directly
-from a Windows MCP PowerShell session. It does not use the repository's nested
-Windows-MCP client.
-
-The runner never accepts an arbitrary process name, window title, key,
-coordinate, click, or command. Its only input is one of the six command names
-documented below.
+This is the coordinator's working registry for EU5 navigation: it records the
+only approved hotkeys, the expected screen, and the required visual check.
+The operational route is direct Windows MCP input after the agent has inspected
+the current screen and focused EU5. The custom EU5 MCP only prepares and
+validates the finite procedure; it has no nested Windows MCP client and never
+sends input. The Win32 script is not an authoritative input route: it can test
+a procedure, but does not prove that EU5 accepted an input.
 
 ## Preconditions
 
@@ -41,9 +40,26 @@ action.
 | `open_alerts` | `Ctrl+F9` | The alerts menu is visible. | The underlying EU5 action is a toggle. If the menu was already visible it may close, so verify the post-input state and do not acknowledge an alert. |
 | `find_province` | `Ctrl+F10` | The province search interface is open without selecting a result. | The runner sends no text. Do not invoke while another text-entry field is focused, and do not select a result without separate authorization. |
 
-## Invocation
+## Operational invocation
 
-Use the fixed script path and one command name:
+For a catalogued command, the agent performs this fixed sequence:
+
+1. Capture the current screen; stop on an active modal or text field.
+2. Focus EU5 through the direct Windows MCP session.
+3. Send the exact table hotkey through direct Windows MCP.
+4. Capture the screen again and verify the expected visible result.
+
+No arbitrary shortcut is used. A hotkey is not considered successful merely
+because Windows reports that it was sent.
+
+## Experimental Win32 runner
+
+`scripts/Invoke-EU5Navigation.ps1` remains an experimental diagnostic tool. It
+may confirm Win32 focus and `SendInput`, but EU5 can still ignore that synthetic
+input. Do not use it as the operational control path unless a visible UI check
+confirms the result.
+
+Use the fixed script path and one command name only for that diagnostic:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass `

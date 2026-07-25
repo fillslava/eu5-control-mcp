@@ -45,8 +45,11 @@ function prepareNavigationCommand(name) {
       "No text-entry field or modal dialog is focused.",
       "The agent-navigation bindings profile is active."
     ],
-    verification: "Capture the visible UI after the hotkey and compare it with expectedVisibleResult.",
-    executor: "windows-mcp.shortcut"
+    directWindowsMcpProcedure: {
+      tool: "Shortcut",
+      arguments: { shortcut: command.hotkey }
+    },
+    verification: "After an external controller sends the hotkey, capture the visible UI and compare it with expectedVisibleResult."
   };
 }
 

@@ -8,7 +8,11 @@ test("navigation commands are finite hotkey procedures", () => {
   const command = prepareNavigationCommand("open_economy");
   assert.equal(command.hotkey, "ctrl+f2");
   assert.equal(command.risk, "read_only");
-  assert.equal(command.executor, "windows-mcp.shortcut");
+  assert.deepEqual(command.directWindowsMcpProcedure, {
+    tool: "Shortcut",
+    arguments: { shortcut: "ctrl+f2" }
+  });
+  assert.equal("executor" in command, false);
   assert.equal(command.preconditions.length, 3);
 });
 
