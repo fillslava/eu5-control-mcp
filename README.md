@@ -41,6 +41,15 @@ The MCP deliberately does not expose save/load, speed, construction, military
 orders, diplomacy confirmation, or war macros. Those require a separate
 confirmation-gated workflow with a verified visible result.
 
+## Windows MCP execution bridge
+
+Set `EU5_ENABLE_WINDOWS_EXECUTION=true` only in the local `.env` to enable the
+finite navigation allowlist through a nested `windows-mcp` client. Each command
+first focuses **Europa Universalis V**, then dispatches exactly one registered
+hotkey. Its result means only that input was sent; a fresh UI observation must
+verify the panel or camera result. Save/load, speed, military, economy and
+diplomacy actions are not routed through this bridge.
+
 ## Initial milestones
 
 - `0.1.x`: save inventory and structured action contracts; no live-game

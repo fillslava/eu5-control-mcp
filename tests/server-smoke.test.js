@@ -25,6 +25,7 @@ test("MCP server lists and runs its read-only tools", async (t) => {
 
   const { tools } = await client.listTools();
   assert.deepEqual(tools.map((tool) => tool.name).sort(), [
+    "eu5_execute_navigation_command",
     "eu5_issue_navigation_command",
     "eu5_list_save_checkpoints",
     "eu5_observe_checkpoint",

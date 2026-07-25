@@ -10,11 +10,13 @@ const { latestSaveCheckpoint } = require("./read/latest-save");
 const { validateActionPreview } = require("./control/action-gate");
 const { COMMANDS, prepareNavigationCommand } = require("./control/navigation-commands");
 const { validateFreshNavigationObservation } = require("./control/command-gate");
+const { createWindowsExecutorFromEnvironment } = require("./control/windows-executor");
 
 const server = new McpServer({
   name: "eu5-control-mcp",
   version: "0.1.0"
 });
+const windowsExecutor = createWindowsExecutorFromEnvironment();
 
 server.registerTool(
   "eu5_list_save_checkpoints",
@@ -100,6 +102,35 @@ server.registerTool(
 );
 
 server.registerTool(
+  "eu5_execute_navigation_command",
+  {
+    title: "Execute one guarded EU5 navigation command",
+    description: "Focus EU5 and dispatch one allowlisted navigation hotkey through nested Windows MCP. The result still requires a fresh UI observation.",
+    inputSchema: {
+      name: z.enum(Object.keys(COMMANDS)),
+      observation: z.object({
+        id: z.string().min(1),
+        capturedAtUtc: z.string().datetime(),
+        paused: z.boolean(),
+        modalPresent: z.boolean(),
+        textEntryFocused: z.boolean()
+      })
+    },
+    annotations: { readOnlyHint: true, destructiveHint: false }
+  },
+  async ({ name, observation }) => {
+    try {
+      const verified = validateFreshNavigationObservation(observation);
+      const command = prepareNavigationCommand(name);
+      const result = await windowsExecutor.executeNavigation(command);
+      return { content: [{ type: "text", text: JSON.stringify({ ...command, ...result, observationId: verified.id }, null, 2) }] };
+    } catch (error) {
+      return { isError: true, content: [{ type: "text", text: `Navigation execution blocked: ${error.message}` }] };
+    }
+  }
+);
+
+server.registerTool(
   "eu5_preview_action",
   {
     title: "Preview an EU5 action",
@@ -125,3 +156,9 @@ main().catch((error) => {
   console.error(error);
   process.exitCode = 1;
 });
+
+async function closeWindowsExecutor() {
+  try { await windowsExecutor.close(); } catch (error) { console.error(error); }
+}
+process.once("SIGINT", closeWindowsExecutor);
+process.once("SIGTERM", closeWindowsExecutor);
