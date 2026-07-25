@@ -5,8 +5,13 @@
   "description": "Safety-first EU5 state reader and UI-control MCP scaffold.",
   "type": "commonjs",
   "scripts": {
+    "start": "node src/server.js",
     "test": "node --test",
-    "check": "node --check src/read/save-inventory.js && node --check src/control/action-gate.js"
+    "check": "node --check src/server.js && node --check src/read/save-inventory.js && node --check src/control/action-gate.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "zod": "^3.25.0"
   },
   "engines": {
     "node": ">=20"

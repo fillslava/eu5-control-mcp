@@ -9,6 +9,21 @@ This repository starts with a deliberately narrow design:
 3. **Keep UI control separate.** A future Windows-MCP adapter may perform a
    verified UI workflow, but it must never write game files or bypass the gate.
 
+## Current runnable tools
+
+Install dependencies with `npm install`, then run the stdio MCP server with
+`npm start`.
+
+- `eu5_list_save_checkpoints` inventories explicitly confirmed absolute save
+  directories. It reports only relative filenames, size, modification time and
+  SHA-256; it never parses or changes a save.
+- `eu5_preview_action` validates a proposed action contract. It never sends
+  keyboard or mouse input to EU5.
+
+The save directory is always supplied by the caller and must be repeated as
+`confirmedSaveDirectory`; the server never guesses a Documents, Steam or game
+installation path. Subfolders are excluded unless explicitly requested.
+
 ## Initial milestones
 
 - `0.1.x`: save inventory and structured action contracts; no live-game
