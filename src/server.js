@@ -9,6 +9,11 @@ const { listSaveCheckpoints } = require("./read/save-inventory");
 const { latestSaveCheckpoint } = require("./read/latest-save");
 const { validateActionPreview } = require("./control/action-gate");
 const { COMMANDS, prepareNavigationCommand } = require("./control/navigation-commands");
+const {
+  CLICK_PROCEDURES,
+  VERIFIED_VIEWPORT,
+  prepareClickNavigation
+} = require("./control/click-navigation-procedures");
 const { validateFreshNavigationObservation } = require("./control/command-gate");
 
 const server = new McpServer({
@@ -68,6 +73,29 @@ server.registerTool(
   },
   async ({ name }) => ({
     content: [{ type: "text", text: JSON.stringify(prepareNavigationCommand(name), null, 2) }]
+  })
+);
+
+server.registerTool(
+  "eu5_prepare_click_navigation",
+  {
+    title: "Prepare a verified-layout EU5 click navigation",
+    description:
+      "Return one declared direct Computer Use click procedure for the verified 1536x900 EU5 layout. This tool never sends input.",
+    inputSchema: {
+      name: z.enum(Object.keys(CLICK_PROCEDURES)),
+      viewport: z.object({
+        width: z.literal(VERIFIED_VIEWPORT.width),
+        height: z.literal(VERIFIED_VIEWPORT.height)
+      })
+    },
+    annotations: { readOnlyHint: true, destructiveHint: false }
+  },
+  async ({ name, viewport }) => ({
+    content: [{
+      type: "text",
+      text: JSON.stringify(prepareClickNavigation(name, viewport), null, 2)
+    }]
   })
 );
 

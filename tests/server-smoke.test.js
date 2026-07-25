@@ -28,9 +28,35 @@ test("MCP server lists and runs its read-only tools", async (t) => {
     "eu5_issue_navigation_command",
     "eu5_list_save_checkpoints",
     "eu5_observe_checkpoint",
+    "eu5_prepare_click_navigation",
     "eu5_prepare_navigation_command",
     "eu5_preview_action"
   ]);
+
+  const clickNavigation = await client.callTool({
+    name: "eu5_prepare_click_navigation",
+    arguments: {
+      name: "open_diplomacy_click",
+      viewport: { width: 1536, height: 900 }
+    }
+  });
+  const preparedClick = JSON.parse(clickNavigation.content[0].text);
+  assert.deepEqual(preparedClick.directComputerUseProcedure, {
+    action: "click",
+    coordinate: [256, 121]
+  });
+  assert.equal(preparedClick.risk, "read_only");
+  assert.equal(preparedClick.verificationRequired, true);
+  assert.equal("executor" in preparedClick, false);
+
+  const rejectedClick = await client.callTool({
+    name: "eu5_prepare_click_navigation",
+    arguments: {
+      name: "open_diplomacy_click",
+      viewport: { width: 1536, height: 901 }
+    }
+  });
+  assert.equal(rejectedClick.isError, true);
 
   const navigation = await client.callTool({
     name: "eu5_prepare_navigation_command",
