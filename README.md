@@ -24,9 +24,16 @@ Git and is never committed.
   modification time and SHA-256; it never parses or changes a save.
 - `eu5_preview_action` validates a proposed action contract. It never sends
   keyboard or mouse input to EU5.
+- `eu5_prepare_navigation_command` returns a finite, tested hotkey procedure
+  for the existing Windows MCP adapter. Version 0.1 contains camera, panel,
+  alert, search and panel-close navigation only.
 
 For a non-standard save directory, supply its absolute path and repeat it as
 `confirmedSaveDirectory`. Subfolders are excluded unless explicitly requested.
+
+The MCP deliberately does not expose save/load, speed, construction, military
+orders, diplomacy confirmation, or war macros. Those require a separate
+confirmation-gated workflow with a verified visible result.
 
 ## Initial milestones
 

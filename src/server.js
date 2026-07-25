@@ -7,6 +7,7 @@ const { StdioServerTransport } = require("@modelcontextprotocol/sdk/server/stdio
 const { z } = require("zod");
 const { listSaveCheckpoints } = require("./read/save-inventory");
 const { validateActionPreview } = require("./control/action-gate");
+const { COMMANDS, prepareNavigationCommand } = require("./control/navigation-commands");
 
 const server = new McpServer({
   name: "eu5-control-mcp",
@@ -32,6 +33,21 @@ server.registerTool(
       return { isError: true, content: [{ type: "text", text: `Safe save inventory error: ${error.message}` }] };
     }
   }
+);
+
+server.registerTool(
+  "eu5_prepare_navigation_command",
+  {
+    title: "Prepare a safe EU5 navigation command",
+    description: "Return a verified hotkey procedure for Windows MCP. This tool never sends input itself.",
+    inputSchema: {
+      name: z.enum(Object.keys(COMMANDS))
+    },
+    annotations: { readOnlyHint: true, destructiveHint: false }
+  },
+  async ({ name }) => ({
+    content: [{ type: "text", text: JSON.stringify(prepareNavigationCommand(name), null, 2) }]
+  })
 );
 
 server.registerTool(
