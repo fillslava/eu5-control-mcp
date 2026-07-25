@@ -11,7 +11,6 @@ const { validateActionPreview } = require("./control/action-gate");
 const { COMMANDS, prepareNavigationCommand } = require("./control/navigation-commands");
 const {
   CLICK_PROCEDURES,
-  VERIFIED_VIEWPORT,
   prepareClickNavigation
 } = require("./control/click-navigation-procedures");
 const { validateFreshNavigationObservation } = require("./control/command-gate");
@@ -79,14 +78,14 @@ server.registerTool(
 server.registerTool(
   "eu5_prepare_click_navigation",
   {
-    title: "Prepare a verified-layout EU5 click navigation",
+    title: "Prepare a provisional EU5 click-navigation candidate",
     description:
-      "Return one declared direct Computer Use click procedure for the verified 1536x900 EU5 layout. This tool never sends input.",
+      "Return one non-operational click candidate scaled from the 1536x900 EU5 catalog baseline for a closely matching viewport. Fresh visual target verification is required before use. This tool never sends input.",
     inputSchema: {
       name: z.enum(Object.keys(CLICK_PROCEDURES)),
       viewport: z.object({
-        width: z.literal(VERIFIED_VIEWPORT.width),
-        height: z.literal(VERIFIED_VIEWPORT.height)
+        width: z.number().int().positive(),
+        height: z.number().int().positive()
       })
     },
     annotations: { readOnlyHint: true, destructiveHint: false }

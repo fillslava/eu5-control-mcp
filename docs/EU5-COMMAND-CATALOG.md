@@ -25,6 +25,17 @@ must be re-observed after a resolution, scale, or UI-layout change.
 | `open_economy_click` | `(84, 121)` | Economy panel opens. |
 | `open_diplomacy_click` | `(256, 121)` | Diplomacy panel opens. |
 | `open_military_click` | `(313, 121)` | Military panel opens. |
+| `open_government_click` | `(27, 121)` | Government panel opens. |
+| `open_production_click` | `(142, 121)` | Production panel opens. |
+| `open_society_click` | `(198, 121)` | Society panel opens. |
+| `open_geopolitics_click` | `(370, 121)` | Geopolitics panel opens. |
+| `open_advances_click` | `(426, 121)` | Advances panel opens. |
+
+### Verified inner route
+
+From the Economy panel, the **Markets** tab opens the market overview. This is
+a read-only route and is only valid after visually confirming that Economy is
+open on the primary monitor.
 
 ## Preconditions
 

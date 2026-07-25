@@ -37,23 +37,28 @@ test("MCP server lists and runs its read-only tools", async (t) => {
     name: "eu5_prepare_click_navigation",
     arguments: {
       name: "open_diplomacy_click",
-      viewport: { width: 1536, height: 900 }
+      viewport: { width: 1538, height: 895 }
     }
   });
   const preparedClick = JSON.parse(clickNavigation.content[0].text);
-  assert.deepEqual(preparedClick.directComputerUseProcedure, {
+  assert.deepEqual(preparedClick.candidateComputerUseProcedure, {
     action: "click",
-    coordinate: [256, 121]
+    coordinate: [256, 120]
   });
+  assert.deepEqual(preparedClick.viewport, { width: 1538, height: 895 });
+  assert.equal(preparedClick.status, "provisional_non_operational");
+  assert.equal(preparedClick.operational, false);
   assert.equal(preparedClick.risk, "read_only");
+  assert.equal(preparedClick.targetVerificationRequired, true);
   assert.equal(preparedClick.verificationRequired, true);
   assert.equal("executor" in preparedClick, false);
+  assert.equal("directComputerUseProcedure" in preparedClick, false);
 
   const rejectedClick = await client.callTool({
     name: "eu5_prepare_click_navigation",
     arguments: {
       name: "open_diplomacy_click",
-      viewport: { width: 1536, height: 901 }
+      viewport: { width: 1280, height: 720 }
     }
   });
   assert.equal(rejectedClick.isError, true);

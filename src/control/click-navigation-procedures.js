@@ -1,15 +1,32 @@
 "use strict";
 
-const VERIFIED_VIEWPORT = Object.freeze({
+const BASELINE_VIEWPORT = Object.freeze({
   width: 1536,
   height: 900
 });
 
+const MAX_VIEWPORT_DEVIATION = 0.02;
+
 const CLICK_PROCEDURES = Object.freeze({
+  open_government_click: Object.freeze({
+    x: 27,
+    y: 121,
+    expectedVisibleResult: "The Government panel is open."
+  }),
   open_economy_click: Object.freeze({
     x: 84,
     y: 121,
     expectedVisibleResult: "The Economy panel is open."
+  }),
+  open_production_click: Object.freeze({
+    x: 142,
+    y: 121,
+    expectedVisibleResult: "The Production panel is open."
+  }),
+  open_society_click: Object.freeze({
+    x: 198,
+    y: 121,
+    expectedVisibleResult: "The Society panel is open."
   }),
   open_diplomacy_click: Object.freeze({
     x: 256,
@@ -20,8 +37,43 @@ const CLICK_PROCEDURES = Object.freeze({
     x: 313,
     y: 121,
     expectedVisibleResult: "The Military panel is open."
+  }),
+  open_geopolitics_click: Object.freeze({
+    x: 370,
+    y: 121,
+    expectedVisibleResult: "The Geopolitics panel is open."
+  }),
+  open_advances_click: Object.freeze({
+    x: 426,
+    y: 121,
+    expectedVisibleResult: "The Advances panel is open."
   })
 });
+
+function relativeDeviation(actual, expected) {
+  return Math.abs(actual - expected) / expected;
+}
+
+function isCompatibleViewport(viewport) {
+  if (
+    !viewport ||
+    !Number.isInteger(viewport.width) ||
+    !Number.isInteger(viewport.height) ||
+    viewport.width <= 0 ||
+    viewport.height <= 0
+  ) {
+    return false;
+  }
+
+  const baselineAspectRatio = BASELINE_VIEWPORT.width / BASELINE_VIEWPORT.height;
+  const viewportAspectRatio = viewport.width / viewport.height;
+
+  return (
+    relativeDeviation(viewport.width, BASELINE_VIEWPORT.width) <= MAX_VIEWPORT_DEVIATION &&
+    relativeDeviation(viewport.height, BASELINE_VIEWPORT.height) <= MAX_VIEWPORT_DEVIATION &&
+    relativeDeviation(viewportAspectRatio, baselineAspectRatio) <= MAX_VIEWPORT_DEVIATION
+  );
+}
 
 function prepareClickNavigation(name, viewport) {
   const procedure = CLICK_PROCEDURES[name];
@@ -29,34 +81,40 @@ function prepareClickNavigation(name, viewport) {
     throw new TypeError(`Unknown safe click navigation procedure: ${name}`);
   }
 
-  if (
-    !viewport ||
-    viewport.width !== VERIFIED_VIEWPORT.width ||
-    viewport.height !== VERIFIED_VIEWPORT.height
-  ) {
+  if (!isCompatibleViewport(viewport)) {
     throw new RangeError(
-      `Click navigation requires an exact ${VERIFIED_VIEWPORT.width}x${VERIFIED_VIEWPORT.height} EU5 viewport.`
+      `Click navigation requires an EU5 viewport within 2% of the ${BASELINE_VIEWPORT.width}x${BASELINE_VIEWPORT.height} catalog baseline, including aspect ratio.`
     );
   }
+
+  const scaledX = Math.round(procedure.x * viewport.width / BASELINE_VIEWPORT.width);
+  const scaledY = Math.round(procedure.y * viewport.height / BASELINE_VIEWPORT.height);
 
   return {
     id: `eu5.${name}`,
     name,
-    viewport: { ...VERIFIED_VIEWPORT },
+    viewport: { width: viewport.width, height: viewport.height },
+    status: "provisional_non_operational",
+    operational: false,
     risk: "read_only",
     expectedVisibleResult: procedure.expectedVisibleResult,
-    directComputerUseProcedure: {
+    candidateComputerUseProcedure: {
       action: "click",
-      coordinate: [procedure.x, procedure.y]
+      coordinate: [scaledX, scaledY]
     },
+    targetVerificationRequired: true,
+    targetVerification:
+      "Do not execute this candidate from viewport scaling alone. Before any external Computer Use controller clicks, inspect a fresh screenshot and visually confirm that the coordinate is centered on the named navigation target.",
     verificationRequired: true,
     verification:
-      "After an external Computer Use controller clicks the declared coordinate, capture a fresh visible UI observation and compare it with expectedVisibleResult."
+      "If a visually confirmed candidate is later clicked by an external controller, capture another fresh visible UI observation and compare it with expectedVisibleResult."
   };
 }
 
 module.exports = {
-  VERIFIED_VIEWPORT,
+  BASELINE_VIEWPORT,
+  MAX_VIEWPORT_DEVIATION,
   CLICK_PROCEDURES,
+  isCompatibleViewport,
   prepareClickNavigation
 };
