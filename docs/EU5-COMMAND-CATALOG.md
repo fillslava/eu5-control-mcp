@@ -2,11 +2,29 @@
 
 This is the coordinator's working registry for EU5 navigation: it records the
 only approved hotkeys, the expected screen, and the required visual check.
-The operational route is direct Windows MCP input after the agent has inspected
-the current screen and focused EU5. The custom EU5 MCP only prepares and
-validates the finite procedure; it has no nested Windows MCP client and never
-sends input. The Win32 script is not an authoritative input route: it can test
-a procedure, but does not prove that EU5 accepted an input.
+The custom EU5 MCP only prepares and validates finite procedures; it has no
+nested Windows MCP client and never sends input. The Win32 script is not an
+authoritative input route: it can test a procedure, but does not prove that EU5
+accepted an input.
+
+## Current input status (2026-07-26)
+
+The reviewed `agent-ctrl-fkeys.bindings` profile works when the user presses
+`Ctrl+F2` and `Ctrl+F5` on the physical keyboard. In this test environment,
+EU5 ignored both the direct Windows MCP shortcut path and the target-window
+Computer Use keyboard path after each had identified and activated the unique
+`eu5.exe` window. Treat both as **non-operational** for EU5 keyboard control
+until an alternative input driver produces a visible, repeatable result.
+
+Target-window mouse clicks do work. The following points were verified on the
+current 1536x900 EU5 window only; they are relative to the game window and
+must be re-observed after a resolution, scale, or UI-layout change.
+
+| Procedure | Relative point | Verified visible result |
+|---|---:|---|
+| `open_economy_click` | `(84, 121)` | Economy panel opens. |
+| `open_diplomacy_click` | `(256, 121)` | Diplomacy panel opens. |
+| `open_military_click` | `(313, 121)` | Military panel opens. |
 
 ## Preconditions
 
@@ -45,8 +63,8 @@ action.
 For a catalogued command, the agent performs this fixed sequence:
 
 1. Capture the current screen; stop on an active modal or text field.
-2. Focus EU5 through the direct Windows MCP session.
-3. Send the exact table hotkey through direct Windows MCP.
+2. Use a proven EU5-compatible input route to focus EU5.
+3. Send the exact table hotkey or verified window-relative click through that route.
 4. Capture the screen again and verify the expected visible result.
 
 No arbitrary shortcut is used. A hotkey is not considered successful merely
