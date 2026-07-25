@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { listSaveCheckpoints } = require("../src/read/save-inventory");
+const { defaultSaveDirectory, listSaveCheckpoints } = require("../src/read/save-inventory");
 
 function fixture(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "eu5-mcp-"));
@@ -39,4 +39,22 @@ test("recursive inventory is explicit", (t) => {
   const result = listSaveCheckpoints({ saveDirectory: root, confirmedSaveDirectory: root, includeSubfolders: true });
   assert.equal(result.fileCount, 3);
   assert.equal(result.files.at(-1).relativePath, path.join("nested", "c.eu5"));
+});
+
+test("default save directory follows the current Windows user profile", () => {
+  assert.equal(
+    defaultSaveDirectory(),
+    path.join(os.homedir(), "Documents", "Paradox Interactive", "Europa Universalis V", "save games")
+  );
+});
+
+test("EU5_SAVE_DIRECTORY overrides the standard save directory", () => {
+  const original = process.env.EU5_SAVE_DIRECTORY;
+  process.env.EU5_SAVE_DIRECTORY = "D:\\custom-eu5-saves";
+  try {
+    assert.equal(defaultSaveDirectory(), "D:\\custom-eu5-saves");
+  } finally {
+    if (original === undefined) delete process.env.EU5_SAVE_DIRECTORY;
+    else process.env.EU5_SAVE_DIRECTORY = original;
+  }
 });

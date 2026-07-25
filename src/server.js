@@ -1,5 +1,7 @@
 "use strict";
 
+const path = require("node:path");
+require("dotenv").config({ path: path.join(__dirname, "..", ".env") });
 const { McpServer } = require("@modelcontextprotocol/sdk/server/mcp.js");
 const { StdioServerTransport } = require("@modelcontextprotocol/sdk/server/stdio.js");
 const { z } = require("zod");
@@ -17,8 +19,8 @@ server.registerTool(
     title: "List EU5 save checkpoints",
     description: "Read metadata and SHA-256 hashes for .eu5 files. Never parses or changes save contents.",
     inputSchema: {
-      saveDirectory: z.string().min(1).describe("Absolute directory containing EU5 .eu5 saves."),
-      confirmedSaveDirectory: z.string().min(1).describe("Same directory, explicitly confirmed by the caller."),
+      saveDirectory: z.string().min(1).optional().describe("Optional absolute directory containing EU5 .eu5 saves. Defaults to this user's standard EU5 save folder."),
+      confirmedSaveDirectory: z.string().min(1).optional().describe("Optional explicit confirmation for a non-default directory. Must match saveDirectory."),
       includeSubfolders: z.boolean().optional().default(false)
     },
     annotations: { readOnlyHint: true, destructiveHint: false }

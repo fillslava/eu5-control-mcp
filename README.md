@@ -14,15 +14,19 @@ This repository starts with a deliberately narrow design:
 Install dependencies with `npm install`, then run the stdio MCP server with
 `npm start`.
 
-- `eu5_list_save_checkpoints` inventories explicitly confirmed absolute save
-  directories. It reports only relative filenames, size, modification time and
-  SHA-256; it never parses or changes a save.
+Copy `.env.example` to a local `.env` and set `EU5_SAVE_DIRECTORY` if your
+save folder differs from the standard Windows location. `.env` is ignored by
+Git and is never committed.
+
+- `eu5_list_save_checkpoints` inventories the standard save folder for the
+  current Windows user by default: `Documents\\Paradox Interactive\\Europa
+  Universalis V\\save games`. It reports only relative filenames, size,
+  modification time and SHA-256; it never parses or changes a save.
 - `eu5_preview_action` validates a proposed action contract. It never sends
   keyboard or mouse input to EU5.
 
-The save directory is always supplied by the caller and must be repeated as
-`confirmedSaveDirectory`; the server never guesses a Documents, Steam or game
-installation path. Subfolders are excluded unless explicitly requested.
+For a non-standard save directory, supply its absolute path and repeat it as
+`confirmedSaveDirectory`. Subfolders are excluded unless explicitly requested.
 
 ## Initial milestones
 

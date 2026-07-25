@@ -1,8 +1,19 @@
 "use strict";
 
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 const crypto = require("node:crypto");
+
+function defaultSaveDirectory() {
+  return process.env.EU5_SAVE_DIRECTORY || path.join(
+    os.homedir(),
+    "Documents",
+    "Paradox Interactive",
+    "Europa Universalis V",
+    "save games"
+  );
+}
 
 /**
  * Return a metadata-only inventory of EU5 saves. The caller must confirm the
@@ -17,7 +28,12 @@ function resolveDirectory(input, label) {
   return fs.realpathSync.native(input);
 }
 
-function listSaveCheckpoints({ saveDirectory, confirmedSaveDirectory, includeSubfolders = false, extensions = [".eu5"] }) {
+function listSaveCheckpoints({
+  saveDirectory = defaultSaveDirectory(),
+  confirmedSaveDirectory = saveDirectory,
+  includeSubfolders = false,
+  extensions = [".eu5"]
+} = {}) {
   const root = resolveDirectory(saveDirectory, "saveDirectory");
   const confirmedRoot = resolveDirectory(confirmedSaveDirectory, "confirmedSaveDirectory");
   if (root.toLowerCase() !== confirmedRoot.toLowerCase()) {
@@ -59,4 +75,4 @@ function listSaveCheckpoints({ saveDirectory, confirmedSaveDirectory, includeSub
   };
 }
 
-module.exports = { listSaveCheckpoints };
+module.exports = { defaultSaveDirectory, listSaveCheckpoints };

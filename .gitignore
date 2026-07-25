@@ -1,6 +1,8 @@
 node_modules/
 coverage/
 .env
+.env.*
+!.env.example
 *.log
 
 # EU5 runtime data is never versioned here.
