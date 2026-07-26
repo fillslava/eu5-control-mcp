@@ -6,6 +6,14 @@ const os = require("node:os");
 const path = require("node:path");
 const { latestSaveCheckpoint } = require("../read/latest-save");
 const { ControlLedger } = require("../control/control-ledger");
+const {
+  TYPED_RECORD_DEFINITIONS,
+  TYPED_RECORD_TYPES,
+  REVIEWED_TELEMETRY_MOD_VERSION,
+  latestVerifiedState,
+  validatePartialTelemetryRecord,
+  validateTypedPayload
+} = require("./typed-telemetry");
 
 const LIVE_FEED_SCHEMA = "eu5.monitoring-feed/v1";
 const CONTROL_LOG_SCHEMA = "eu5.control-log/v1";
@@ -18,12 +26,19 @@ const CHECKPOINT_FRESH_MS = 10 * 60 * 1000;
 const CONTROL_RECORD_TYPES = new Set([
   "bridge_health",
   "player_scope",
-  "state_snapshot"
+  "state_snapshot",
+  ...TYPED_RECORD_TYPES,
+  "telemetry_export",
+  "telemetry_fact"
 ]);
 const PROCEDURES = Object.freeze({
   bridge_health: "emit_ping",
   player_scope: "emit_player_scope",
-  state_snapshot: "emit_state_snapshot"
+  state_snapshot: "emit_state_snapshot",
+  ...Object.fromEntries(
+    Object.entries(TYPED_RECORD_DEFINITIONS)
+      .map(([recordType, definition]) => [recordType, definition.procedure])
+  )
 });
 const SAFE_TOP_LEVEL_KEYS = new Set([
   "schemaVersion",
@@ -36,7 +51,14 @@ const SAFE_TOP_LEVEL_KEYS = new Set([
   "campaignId",
   "status",
   "observationJoinRequired",
-  "payload"
+  "payload",
+  "section",
+  "completeness",
+  "field",
+  "value",
+  "availability",
+  "reason",
+  "unit"
 ]);
 const CANONICAL_UTC =
   /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
@@ -45,6 +67,7 @@ const FORBIDDEN_KEY =
 const LOCAL_PATH = /(?:[a-z]:[\\/]|\\\\|file:)/i;
 const CREDENTIAL_VALUE =
   /\b(?:authorization\s*:\s*(?:bearer|basic)\s+\S+|bearer\s+[a-z0-9._~+/=-]{8,}|(?:api[\s_-]*key|access[\s_-]*token|refresh[\s_-]*token|password|secret)\s*[:=]\s*\S+)/i;
+const SHA256 = /^[a-f0-9]{64}$/;
 
 function isPlainObject(value) {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
@@ -113,7 +136,7 @@ function assertShortString(value, label, { optional = false } = {}) {
   }
 }
 
-function parseEu5ControlLine(line) {
+function parseEu5ControlLine(line, { now = () => Date.now() } = {}) {
   if (typeof line !== "string") return null;
   const trimmed = line.trim();
   const wrapped =
@@ -147,6 +170,9 @@ function parseEu5ControlLine(line) {
   ) {
     return null;
   }
+  const partialTelemetry = validatePartialTelemetryRecord(record);
+  const typedPayload = TYPED_RECORD_TYPES.has(record.recordType) &&
+    record.payload !== undefined;
   try {
     assertShortString(record.modVersion, "modVersion");
     assertShortString(record.procedure, "procedure");
@@ -163,16 +189,42 @@ function parseEu5ControlLine(line) {
   ) {
     return null;
   }
-  if (
+  if (!partialTelemetry && (
     record.status !== "acknowledged" ||
     record.observationJoinRequired !== true
-  ) {
-    return null;
-  }
+  )) return null;
   if (record.payload !== undefined && !isPlainObject(record.payload)) return null;
-  if (
+  if (!partialTelemetry && (
     PROCEDURES[record.recordType] &&
     record.procedure !== PROCEDURES[record.recordType]
+  )) return null;
+  if (
+    (record.recordType === "telemetry_export" ||
+      record.recordType === "telemetry_fact") &&
+    !partialTelemetry
+  ) return null;
+  if (typedPayload) {
+    if (
+      record.eventId === undefined ||
+      record.captureSessionId === undefined ||
+      record.campaignId === undefined ||
+      record.occurredAtUtc === undefined ||
+      record.payload === undefined
+    ) {
+      return null;
+    }
+    if (record.modVersion !== REVIEWED_TELEMETRY_MOD_VERSION) return null;
+    try {
+      record.payload = validateTypedPayload(record.recordType, record.payload, {
+        nowMs: now()
+      });
+    } catch {
+      return null;
+    }
+    if (record.occurredAtUtc !== record.payload.capturedAtUtc) return null;
+  } else if (
+    TYPED_RECORD_TYPES.has(record.recordType) &&
+    !partialTelemetry
   ) {
     return null;
   }
@@ -229,29 +281,166 @@ function freshness(timestamp, nowMs, thresholdMs) {
   return Math.abs(nowMs - value) <= thresholdMs ? "fresh" : "stale";
 }
 
-function structuredLogRecords({ logPath, now = () => Date.now() }) {
+function telemetryEvidencePayload(context) {
+  return JSON.stringify({
+    evidenceId: context.evidenceId,
+    modVersion: context.modVersion,
+    manifestSha256: context.manifestSha256,
+    campaignId: context.campaignId,
+    captureSessionId: context.captureSessionId
+  });
+}
+
+function trustedTypedTelemetry(
+  record,
+  trustedContext,
+  secret = process.env.EU5_TELEMETRY_EVIDENCE_SECRET
+) {
+  if (
+    !isPlainObject(trustedContext) ||
+    Object.keys(trustedContext).some((key) => ![
+      "evidenceId",
+      "modVersion",
+      "manifestSha256",
+      "campaignId",
+      "captureSessionId",
+      "signature"
+    ].includes(key)) ||
+    Object.keys(trustedContext).length !== 6 ||
+    typeof secret !== "string" ||
+    secret.length < 32 ||
+    trustedContext.modVersion !== REVIEWED_TELEMETRY_MOD_VERSION ||
+    record.modVersion !== REVIEWED_TELEMETRY_MOD_VERSION ||
+    trustedContext.campaignId !== record.campaignId ||
+    trustedContext.captureSessionId !== record.captureSessionId ||
+    typeof trustedContext.manifestSha256 !== "string" ||
+    !SHA256.test(trustedContext.manifestSha256) ||
+    typeof trustedContext.evidenceId !== "string" ||
+    trustedContext.evidenceId.length === 0 ||
+    trustedContext.evidenceId.length > 256 ||
+    typeof trustedContext.signature !== "string" ||
+    !SHA256.test(trustedContext.signature)
+  ) {
+    return false;
+  }
+  const expected = crypto
+    .createHmac("sha256", secret)
+    .update(telemetryEvidencePayload(trustedContext))
+    .digest("hex");
+  return crypto.timingSafeEqual(
+    Buffer.from(expected, "hex"),
+    Buffer.from(trustedContext.signature, "hex")
+  );
+}
+
+function structuredLogRecords({
+  logPath,
+  now = () => Date.now(),
+  trustedTelemetryContext
+}) {
   if (!logPath || !fs.existsSync(logPath)) return [];
   const tail = readLogTail(logPath);
   const recordedAtUtc = tail.modifiedAtUtc;
   const nowMs = now();
   const records = [];
+  const activePartialGroups = new Map();
   for (const item of tail.lines) {
-    const parsed = parseEu5ControlLine(item.line);
+    const parsed = parseEu5ControlLine(item.line, { now });
     if (!parsed) continue;
     const occurredAtUtc = parsed.occurredAtUtc || recordedAtUtc;
-    const recordType =
-      parsed.recordType === "bridge_health" ? "health" : "game_event";
+    const partialTelemetry = validatePartialTelemetryRecord(parsed);
+    const typed = TYPED_RECORD_TYPES.has(parsed.recordType) &&
+      parsed.payload !== undefined;
+    const recordType = typed
+      ? "nation_snapshot"
+      : parsed.recordType === "bridge_health"
+        ? "health"
+        : "game_event";
     const subject = {};
     if (parsed.campaignId !== undefined) subject.campaignId = parsed.campaignId;
+    if (typed) {
+      if (parsed.payload.country.id !== undefined) {
+        subject.countryId = parsed.payload.country.id;
+      }
+      subject.countryTag = parsed.payload.country.tag;
+      subject.countryName = parsed.payload.country.name;
+    }
+    let correlationId;
+    if (partialTelemetry && partialTelemetry.kind === "partial_export") {
+      correlationId = `eu5-export-${hashId(
+        item.byteOffset,
+        parsed.procedure,
+        parsed.section,
+        parsed.modVersion
+      )}`;
+      activePartialGroups.set(partialTelemetry.domain, {
+        correlationId,
+        procedure: parsed.procedure
+      });
+    } else if (partialTelemetry && partialTelemetry.kind === "partial_fact") {
+      const active = activePartialGroups.get(partialTelemetry.domain);
+      if (active && active.procedure === parsed.procedure) {
+        correlationId = active.correlationId;
+      }
+    }
     const payload = {
       sourceRecordType: parsed.recordType,
       procedure: parsed.procedure || null,
       modVersion: parsed.modVersion,
       status: parsed.status,
-      observationJoinRequired: parsed.observationJoinRequired,
-      data: parsed.payload || {}
+      ...(parsed.observationJoinRequired === undefined
+        ? {}
+        : { observationJoinRequired: parsed.observationJoinRequired }),
+      ...(typed
+        ? {
+          domain: TYPED_RECORD_DEFINITIONS[parsed.recordType].domain,
+          gameDate: parsed.payload.gameDate,
+          capturedAtUtc: parsed.payload.capturedAtUtc,
+          paused: parsed.payload.paused,
+          ...(parsed.payload.gameBuild === undefined
+            ? {}
+            : { gameBuild: parsed.payload.gameBuild }),
+          metrics: parsed.payload.metrics,
+          ...(parsed.payload.market === undefined
+            ? {}
+            : { market: parsed.payload.market }),
+          ...(parsed.payload.goods === undefined
+            ? {}
+            : { goods: parsed.payload.goods }),
+          ...(parsed.payload.relations === undefined
+            ? {}
+            : { relations: parsed.payload.relations }),
+          ...(parsed.payload.armies === undefined
+            ? {}
+            : { armies: parsed.payload.armies })
+        }
+        : partialTelemetry
+          ? {
+            event: partialTelemetry.kind,
+            domain: partialTelemetry.domain,
+            completeness:
+              partialTelemetry.kind === "partial_export"
+                ? partialTelemetry.completeness
+                : "partial",
+            ...(partialTelemetry.kind === "partial_fact"
+              ? {
+                field: partialTelemetry.field,
+                value: partialTelemetry.value,
+                availability: partialTelemetry.availability,
+                ...(partialTelemetry.unit === undefined
+                  ? {}
+                  : { unit: partialTelemetry.unit }),
+                ...(partialTelemetry.reason === undefined
+                  ? {}
+                  : { reason: partialTelemetry.reason })
+              }
+              : {})
+          }
+        : { data: parsed.payload || {} })
     };
-    records.push({
+    const typedTrusted = typed &&
+      trustedTypedTelemetry(parsed, trustedTelemetryContext);
+    const normalized = {
       recordId:
         parsed.eventId ||
         `eu5-log-${hashId(item.byteOffset, JSON.stringify(parsed))}`,
@@ -262,20 +451,87 @@ function structuredLogRecords({ logPath, now = () => Date.now() }) {
       ...(parsed.captureSessionId
         ? { captureSessionId: parsed.captureSessionId }
         : {}),
+      ...(correlationId ? { correlationId } : {}),
       subject,
       provenance: {
-        adapter: { id: "eu5-control-debug-log", version: "1" },
+        adapter: { id: "eu5-control-bridge", version: "1" },
         verification: {
-          status: "unverified",
-          evidence:
-            "Recognized structured EU5_CONTROL record; values are not independently authenticated."
+          status: typedTrusted ? "verified" : "unverified",
+          evidence: typedTrusted
+            ? "Typed telemetry matched externally authenticated campaign, capture-session and reviewed-manifest evidence."
+            : typed
+              ? "Schema-valid typed telemetry without matching external campaign and manifest authentication."
+            : partialTelemetry
+              ? "Strictly allowlisted partial observation; country, game date and scalar values remain unavailable unless explicitly present."
+            : "Recognized structured EU5_CONTROL record; values are not independently authenticated."
         },
-        freshness: freshness(recordedAtUtc, nowMs, LOG_FRESH_MS)
+        freshness: freshness(
+          typed ? parsed.payload.capturedAtUtc : recordedAtUtc,
+          nowMs,
+          LOG_FRESH_MS
+        )
       },
       payload
+    };
+    Object.defineProperty(normalized, "_sourceOrder", {
+      value: item.byteOffset,
+      enumerable: false
     });
+    records.push(normalized);
   }
   return records;
+}
+
+function latestPartialObservations(records) {
+  const domains = {};
+  for (const record of records) {
+    if (
+      record.recordType === "game_event" &&
+      record.payload &&
+      record.payload.event === "partial_export" &&
+      record.provenance &&
+      record.provenance.freshness === "fresh"
+    ) {
+      domains[record.payload.domain] = {
+        captureGroupId: record.correlationId,
+        fields: {},
+        updatedAtUtc: record.recordedAtUtc
+      };
+      continue;
+    }
+    if (
+      record.recordType !== "game_event" ||
+      !record.payload ||
+      record.payload.event !== "partial_fact" ||
+      !record.provenance ||
+      record.provenance.freshness !== "fresh"
+    ) {
+      continue;
+    }
+    const domain = record.payload.domain;
+    if (
+      !domains[domain] ||
+      !record.correlationId ||
+      domains[domain].captureGroupId !== record.correlationId
+    ) continue;
+    domains[domain].fields[record.payload.field] = {
+      value: record.payload.value,
+      availability: record.payload.availability,
+      ...(record.payload.unit === undefined
+        ? {}
+        : { unit: record.payload.unit }),
+      ...(record.payload.reason === undefined
+        ? {}
+        : { reason: record.payload.reason })
+    };
+    domains[domain].updatedAtUtc = record.recordedAtUtc;
+  }
+  return {
+    status: Object.keys(domains).length ? "partial" : "unavailable",
+    country: null,
+    gameDate: null,
+    domains
+  };
 }
 
 function ledgerRecordId(event) {
@@ -433,19 +689,36 @@ function buildLiveFeed({
   now = () => Date.now(),
   logPath = defaultDebugLogPath(),
   ledgerReader,
-  saveDirectory = process.env.EU5_SAVE_DIRECTORY
+  saveDirectory = process.env.EU5_SAVE_DIRECTORY,
+  trustedTelemetryContext
 } = {}) {
   const generatedAtUtc = new Date(now()).toISOString();
   const records = [];
   const sourceHealth = [];
 
   try {
-    const logRecords = structuredLogRecords({ logPath, now });
+    const logRecords = structuredLogRecords({
+      logPath,
+      now,
+      trustedTelemetryContext
+    });
     records.push(...logRecords);
+    const verifiedTypedRecordCount = logRecords.filter((record) =>
+      record.recordType === "nation_snapshot" &&
+      record.provenance.verification.status === "verified"
+    ).length;
+    const partialTelemetryRecordCount = logRecords.filter((record) =>
+      record.recordType === "game_event" &&
+      record.payload &&
+      (record.payload.event === "partial_export" ||
+        record.payload.event === "partial_fact")
+    ).length;
     sourceHealth.push({
       component: "structured-debug-log",
       status: logRecords.length ? "available" : "awaiting-recognized-record",
-      recognizedRecordCount: logRecords.length
+      recognizedRecordCount: logRecords.length,
+      verifiedTypedRecordCount,
+      partialTelemetryRecordCount
     });
   } catch {
     sourceHealth.push({
@@ -513,7 +786,16 @@ function buildLiveFeed({
   const bounded = records
     .sort((left, right) => {
       const time = Date.parse(left.recordedAtUtc) - Date.parse(right.recordedAtUtc);
-      return time || left.recordId.localeCompare(right.recordId);
+      if (time) return time;
+      const leftHasSourceOrder = Number.isSafeInteger(left._sourceOrder);
+      const rightHasSourceOrder = Number.isSafeInteger(right._sourceOrder);
+      if (leftHasSourceOrder && rightHasSourceOrder) {
+        return left._sourceOrder - right._sourceOrder;
+      }
+      if (leftHasSourceOrder !== rightHasSourceOrder) {
+        return leftHasSourceOrder ? -1 : 1;
+      }
+      return left.recordId.localeCompare(right.recordId);
     })
     .slice(-MAX_RECORDS)
     .map((record, sequence) => ({ ...record, sequence }));
@@ -529,6 +811,8 @@ function buildLiveFeed({
     generatedAtUtc,
     sourceMode: "local-live",
     records: bounded,
+    currentState: latestVerifiedState(bounded),
+    currentObservations: latestPartialObservations(bounded),
     integrity: { manifestSha256 }
   };
 }
@@ -547,9 +831,12 @@ module.exports = {
   defaultDebugLogPath,
   freshness,
   mapLedgerEvents,
+  latestPartialObservations,
   parseEu5ControlLine,
   readLogTail,
   sanitizeFreeText,
   structuredLogRecords,
+  telemetryEvidencePayload,
+  trustedTypedTelemetry,
   validateSafeTree
 };

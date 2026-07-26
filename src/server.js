@@ -16,6 +16,15 @@ const {
 } = require("./control/click-navigation-procedures");
 const { validateFreshNavigationObservation } = require("./control/command-gate");
 const { ControlProtocol } = require("./control/control-protocol");
+const {
+  CATALOG_ID,
+  PROCEDURES,
+  listProcedures
+} = require("./control/control-procedure-catalog");
+const {
+  evaluateProcedureGate,
+  classifyProcedureOutcome
+} = require("./control/control-procedure-gate");
 
 // This protocol only records the coordinator's lifecycle claims. It never has
 // access to a UI-input primitive, so dispatch cannot send clicks or keys.
@@ -25,6 +34,181 @@ const server = new McpServer({
   name: "eu5-control-mcp",
   version: "0.1.0"
 });
+
+const procedureNameSchema = z.enum(Object.keys(PROCEDURES));
+const observedControlSchema = z.object({
+  role: z.enum(["button", "tab"]),
+  label: z.string().trim().min(1).max(128),
+  visible: z.boolean(),
+  enabled: z.boolean()
+}).strict();
+const controlObservationSchema = z.object({
+  id: z.string().trim().min(1).max(128),
+  capturedAtUtc: z.string().datetime(),
+  window: z.object({
+    visibleEu5WindowCount: z.number().int().min(0).max(8),
+    processName: z.string().trim().min(1).max(128),
+    title: z.string().trim().min(1).max(256),
+    focused: z.boolean()
+  }).strict(),
+  game: z.object({
+    paused: z.boolean(),
+    modalPresent: z.boolean(),
+    textEntryFocused: z.boolean()
+  }).strict(),
+  session: z.object({
+    testMarkerMatched: z.boolean(),
+    gameBuildMatched: z.boolean(),
+    modManifestMatched: z.boolean()
+  }).strict(),
+  screenId: z.enum([
+    "map",
+    "control_panel",
+    "economy",
+    "markets",
+    "diplomacy",
+    "military",
+    "alerts"
+  ]),
+  visibleControls: z.array(observedControlSchema).max(64)
+}).strict();
+const sha256Schema = z.string().regex(/^[a-f0-9]{64}$/);
+const evidenceReferenceSchema = z.object({
+  reference: z.string().trim().min(1).max(512),
+  sha256: sha256Schema
+}).strict();
+const outcomeEvidenceSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("active_window"),
+    processName: z.string().trim().min(1).max(128),
+    title: z.string().trim().min(1).max(256)
+  }).strict(),
+  z.object({
+    kind: z.literal("game_state"),
+    paused: z.boolean()
+  }).strict(),
+  z.object({
+    kind: z.literal("debug_record"),
+    fresh: z.boolean(),
+    record: z.object({
+      schemaVersion: z.string().trim().min(1).max(64),
+      recordType: z.string().trim().min(1).max(64),
+      procedure: z.string().trim().min(1).max(64),
+      status: z.string().trim().min(1).max(64)
+    }).strict()
+  }).strict(),
+  z.object({
+    kind: z.literal("screen"),
+    screenId: z.string().trim().min(1).max(64),
+    visibleTexts: z.array(z.string().trim().min(1).max(128)).max(64).optional(),
+    capitalCentered: z.boolean().optional(),
+    panelClosed: z.boolean().optional(),
+    alertsVisible: z.boolean().optional()
+  }).strict(),
+  z.object({
+    kind: z.literal("screen_transition"),
+    previousScreenId: z.string().trim().min(1).max(64),
+    currentScreenId: z.string().trim().min(1).max(64)
+  }).strict()
+]);
+
+server.registerTool(
+  "eu5_list_control_procedures",
+  {
+    title: "List controlled EU5 procedures",
+    description:
+      "Return the finite, versioned procedure catalogue and its evidence/retry policy. This server cannot focus windows, send input, or accept arbitrary commands.",
+    inputSchema: {},
+    annotations: { readOnlyHint: true, destructiveHint: false }
+  },
+  async () => ({
+    content: [{
+      type: "text",
+      text: JSON.stringify({
+        schemaVersion: "eu5.control-procedure-list/v1",
+        catalogId: CATALOG_ID,
+        coordinatorDispatchRequired: false,
+        serverCanDispatch: false,
+        arbitraryInputAccepted: false,
+        outcomePolicy: {
+          missingAcknowledgement: "execution_unknown",
+          inconclusiveEvidence: "execution_unknown",
+          automaticRetryAllowed: false
+        },
+        procedures: listProcedures()
+      }, null, 2)
+    }]
+  })
+);
+
+server.registerTool(
+  "eu5_prepare_control_procedure",
+  {
+    title: "Gate one fixed EU5 control procedure",
+    description:
+      "Evaluate one fresh bounded observation against a fixed procedure. Returns coordinator dispatch metadata only when admitted; never focuses EU5 or sends input.",
+    inputSchema: {
+      name: procedureNameSchema,
+      observation: controlObservationSchema
+    },
+    annotations: { readOnlyHint: true, destructiveHint: false }
+  },
+  async ({ name, observation }) => {
+    const gate = evaluateProcedureGate(name, observation);
+    return {
+      content: [{
+        type: "text",
+        text: JSON.stringify({
+          schemaVersion: "eu5.control-procedure-preparation/v1",
+          catalogId: CATALOG_ID,
+          executionPerformed: false,
+          coordinatorDispatchRequired: Boolean(gate.dispatch),
+          gate
+        }, null, 2)
+      }]
+    };
+  }
+);
+
+server.registerTool(
+  "eu5_classify_control_procedure_outcome",
+  {
+    title: "Classify EU5 procedure outcome evidence",
+    description:
+      "Classify bounded post-dispatch evidence and return an immutable evidence record for an external append-only ledger. This tool does not persist, execute, or retry anything.",
+    inputSchema: {
+      name: procedureNameSchema,
+      observedAtUtc: z.string().datetime(),
+      evidenceReference: evidenceReferenceSchema,
+      outcome: z.object({
+        acknowledged: z.boolean(),
+        evidenceConclusive: z.boolean(),
+        evidence: outcomeEvidenceSchema.optional()
+      }).strict()
+    },
+    annotations: { readOnlyHint: true, destructiveHint: false }
+  },
+  async ({ name, observedAtUtc, evidenceReference, outcome }) => {
+    const classification = classifyProcedureOutcome(name, outcome);
+    return {
+      content: [{
+        type: "text",
+        text: JSON.stringify({
+          schemaVersion: "eu5.control-procedure-outcome-record/v1",
+          catalogId: CATALOG_ID,
+          procedureName: name,
+          observedAtUtc,
+          evidenceReference,
+          evidence: outcome.evidence || null,
+          classification,
+          executionPerformed: false,
+          persisted: false,
+          automaticRetryAllowed: false
+        }, null, 2)
+      }]
+    };
+  }
+);
 
 server.registerTool(
   "eu5_list_debug_exports",
@@ -99,7 +283,7 @@ server.registerTool(
   "eu5_prepare_navigation_command",
   {
     title: "Prepare a safe EU5 navigation command",
-    description: "Return a verified hotkey procedure for Windows MCP. This tool never sends input itself.",
+    description: "Return disabled metadata for a reviewed binding. Programmatic EU5 keyboard delivery is not live-proven, so no dispatch procedure is returned.",
     inputSchema: {
       name: z.enum(Object.keys(COMMANDS))
     },
@@ -115,7 +299,7 @@ server.registerTool(
   {
     title: "Prepare a provisional EU5 click-navigation candidate",
     description:
-      "Return one non-operational click candidate scaled from the 1536x900 EU5 catalog baseline for a closely matching viewport. Fresh visual target verification is required before use. This tool never sends input.",
+      "Return disabled metadata for one legacy viewport calibration. Coordinates and dispatch procedures are withheld because no coordinate-free route is live-proven.",
     inputSchema: {
       name: z.enum(Object.keys(CLICK_PROCEDURES)),
       viewport: z.object({
@@ -137,7 +321,7 @@ server.registerTool(
   "eu5_issue_navigation_command",
   {
     title: "Validate a guarded EU5 navigation command",
-    description: "Validate a fresh paused UI observation, then return one direct Windows MCP hotkey procedure. This tool never sends input.",
+    description: "Validate a fresh paused UI observation, then return disabled binding metadata. No hotkey procedure or UI input is returned.",
     inputSchema: {
       name: z.enum(Object.keys(COMMANDS)),
       observation: z.object({

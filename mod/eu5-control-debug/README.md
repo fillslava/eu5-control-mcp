@@ -7,16 +7,36 @@ step and must never target a normal campaign playset.
 
 The mod declares one static, country-scoped panel:
 `eu5_control_debug_window` in `in_game/gui/eu5_control_debug.gui`. It has
-three buttons whose only actions are fixed scripted-GUI procedures:
+eight buttons whose only actions are fixed scripted-GUI procedures:
 
 - `emit_ping` writes one `bridge_health` record with `debug_log`.
 - `emit_player_scope` writes one `player_scope` record with `debug_log`.
 - `emit_state_snapshot` writes one `state_snapshot` record with `debug_log`.
+- `emit_player_summary` writes a partial nation export plus typed facts.
+- `emit_economy_snapshot` writes a partial economy export plus typed facts.
+- `emit_markets_snapshot` writes a partial market export plus typed facts.
+- `emit_diplomacy_snapshot` writes a partial diplomacy export plus typed facts.
+- `emit_military_snapshot` writes a partial military export plus typed facts.
 
 Every recognized record is a single line beginning with `EU5_CONTROL ` and a
 JSON object using schema `eu5.control-log/v1`. It contains the fixed procedure,
 mod version, `status: "acknowledged"`, and
 `observationJoinRequired: true`.
+
+Version 0.3.0 adds only read-only telemetry. The locally generated EU5 1.3.11
+script documentation and shipped game scripts confirm the country-scope
+triggers used here: `at_war`, `is_subject`, `monthly_balance`, `gold`,
+`has_markets`, `army_size`, `navy_size`, and `can_raise_army_levies`.
+These yield categorical facts such as `atWar`, `monthlyBalanceClass`, and
+`hasArmy`. Each fact is its own `telemetry_fact` record so the consumer never
+has to parse localized prose.
+
+The generated script documentation does not expose a JSON-safe scalar or
+collection serializer for `debug_log`. Exact treasury, income, manpower,
+market lists, food, shortages, relations, and supply are therefore emitted as
+`value: null`, `availability: "unavailable"`, with a machine-readable reason.
+The mod must not invent syntax or present those values as observed. Country
+name and game date remain external-observation joins for the same reason.
 
 Live testing against EU5 1.3.11 showed that putting
 `[ROOT.GetNameWithNoTooltip]` or `[GetDateString]` inside `debug_log` causes a

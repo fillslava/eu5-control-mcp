@@ -1,9 +1,9 @@
 {
   "name": "EU5 Control Debug",
   "id": "eu5-control-debug",
-  "version": "0.2.3",
+  "version": "0.3.0",
   "supported_game_version": "1.3.*",
-  "short_description": "Disposable-campaign diagnostic panel with three fixed structured read-only procedures.",
+  "short_description": "Disposable-campaign diagnostic panel with fixed structured read-only telemetry procedures.",
   "tags": [
     "Utilities"
   ],

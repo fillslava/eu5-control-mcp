@@ -22,50 +22,34 @@ test("click navigation catalog contains only the eight fixed procedures", () => 
   ]);
 });
 
-test("click navigation returns baseline coordinates as non-operational candidates", () => {
-  const expectedCoordinates = {
-    open_government_click: [27, 121],
-    open_economy_click: [84, 121],
-    open_production_click: [142, 121],
-    open_society_click: [198, 121],
-    open_diplomacy_click: [256, 121],
-    open_military_click: [313, 121],
-    open_geopolitics_click: [370, 121],
-    open_advances_click: [426, 121]
-  };
-
-  for (const [name, coordinate] of Object.entries(expectedCoordinates)) {
+test("click navigation withholds coordinates and returns disabled candidates", () => {
+  for (const name of Object.keys(CLICK_PROCEDURES)) {
     const result = prepareClickNavigation(name, BASELINE_VIEWPORT);
-    assert.deepEqual(result.candidateComputerUseProcedure, {
-      action: "click",
-      coordinate
-    });
     assert.deepEqual(result.viewport, BASELINE_VIEWPORT);
-    assert.equal(result.status, "provisional_non_operational");
+    assert.equal(result.status, "candidate_requires_live_proof");
     assert.equal(result.operational, false);
+    assert.equal(result.dispatch, null);
     assert.equal(result.risk, "read_only");
     assert.match(result.expectedVisibleResult, /panel is open\.$/);
-    assert.equal(result.targetVerificationRequired, true);
-    assert.match(result.targetVerification, /Do not execute.*fresh screenshot/);
+    assert.equal(result.targetVerificationRequired, false);
     assert.equal(result.verificationRequired, true);
-    assert.match(result.verification, /fresh visible UI observation/);
+    assert.match(result.verification, /No click is prepared/);
+    assert.match(result.nonOperationalReason, /Coordinates are intentionally withheld/);
+    assert.equal("candidateComputerUseProcedure" in result, false);
     assert.equal("executor" in result, false);
     assert.equal("directComputerUseProcedure" in result, false);
     assert.equal("dispatched" in result, false);
   }
 });
 
-test("click navigation scales coordinates for a closely matching viewport", () => {
+test("closely matching viewport still does not produce coordinates", () => {
   const viewport = { width: 1538, height: 895 };
   const result = prepareClickNavigation("open_economy_click", viewport);
 
   assert.deepEqual(result.viewport, viewport);
-  assert.deepEqual(result.candidateComputerUseProcedure, {
-    action: "click",
-    coordinate: [84, 120]
-  });
   assert.equal(result.operational, false);
-  assert.equal(result.targetVerificationRequired, true);
+  assert.equal(result.dispatch, null);
+  assert.equal("candidateComputerUseProcedure" in result, false);
 });
 
 test("click navigation rejects unknown actions", () => {

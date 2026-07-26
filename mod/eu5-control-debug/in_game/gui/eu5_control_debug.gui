@@ -1,13 +1,13 @@
 window = {
     name = "eu5_control_debug_window"
     parentanchor = top|left
-    size = { 420 246 }
+    size = { 420 416 }
     position = { 20 220 }
     widgetanchor = top|left
     movable = yes
     using = editor_window
     vbox = {
-        size = { 388 218 }
+        size = { 388 388 }
         position = { 16 12 }
         spacing = 8
 
@@ -15,7 +15,7 @@ window = {
             name = "title"
             size = { 388 28 }
             align = center
-            raw_text = "EU5 Control Debug v0.2.3 (read-only)"
+            raw_text = "EU5 Control Debug v0.3.0 (read-only)"
         }
 
         text_single = {
@@ -60,6 +60,41 @@ window = {
             size = { 388 28 }
             raw_text = "Emit state snapshot"
             onclick = "[GetScriptedGui('eu5_control_debug_emit_state_snapshot').Execute(GuiScope.SetRoot(GetPlayer.MakeScope).End)]"
+        }
+
+        button_default = {
+            name = "emit_player_summary"
+            size = { 388 28 }
+            raw_text = "Export nation summary"
+            onclick = "[GetScriptedGui('eu5_control_debug_emit_player_summary').Execute(GuiScope.SetRoot(GetPlayer.MakeScope).End)]"
+        }
+
+        button_default = {
+            name = "emit_economy_snapshot"
+            size = { 388 28 }
+            raw_text = "Export economy"
+            onclick = "[GetScriptedGui('eu5_control_debug_emit_economy_snapshot').Execute(GuiScope.SetRoot(GetPlayer.MakeScope).End)]"
+        }
+
+        button_default = {
+            name = "emit_markets_snapshot"
+            size = { 388 28 }
+            raw_text = "Export markets"
+            onclick = "[GetScriptedGui('eu5_control_debug_emit_markets_snapshot').Execute(GuiScope.SetRoot(GetPlayer.MakeScope).End)]"
+        }
+
+        button_default = {
+            name = "emit_diplomacy_snapshot"
+            size = { 388 28 }
+            raw_text = "Export diplomacy"
+            onclick = "[GetScriptedGui('eu5_control_debug_emit_diplomacy_snapshot').Execute(GuiScope.SetRoot(GetPlayer.MakeScope).End)]"
+        }
+
+        button_default = {
+            name = "emit_military_snapshot"
+            size = { 388 28 }
+            raw_text = "Export military"
+            onclick = "[GetScriptedGui('eu5_control_debug_emit_military_snapshot').Execute(GuiScope.SetRoot(GetPlayer.MakeScope).End)]"
         }
     }
 }

@@ -2,9 +2,14 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
+const { buildLiveFeed } = require("../src/monitoring/live-feed");
 const {
   MONITORING_BUNDLE_SCHEMA,
   LIVE_FEED_SCHEMA,
+  buildHumanMonitoringView,
   buildMonitoringModel,
   buildLiveMonitoringModel,
   createLivePoller,
@@ -36,6 +41,24 @@ function bundle(records = [record("health", 0)]) {
     generatedAtUtc: "2026-07-26T10:00:02.000Z",
     sourceMode: "offline-import",
     records,
+    integrity: {}
+  };
+}
+
+function liveFeed(records, currentState, currentObservations = {
+  status: "unavailable",
+  country: null,
+  gameDate: null,
+  domains: {}
+}) {
+  return {
+    schemaVersion: LIVE_FEED_SCHEMA,
+    feedId: "local-feed",
+    generatedAtUtc: "2026-07-26T10:00:02.000Z",
+    sourceMode: "local-live",
+    records,
+    ...(currentState === undefined ? {} : { currentState }),
+    currentObservations,
     integrity: {}
   };
 }
@@ -133,6 +156,19 @@ test("live feed has a distinct local-live contract and preserves offline isolati
     () => validateLiveMonitoringFeed(bundle()),
     /unsupported top-level field|schemaVersion/
   );
+});
+
+test("dashboard accepts the exact buildLiveFeed top-level contract", () => {
+  const generated = buildLiveFeed({
+    now: () => Date.parse("2026-07-26T10:00:02.000Z"),
+    logPath: path.join(os.tmpdir(), "definitely-missing-eu5-debug.log"),
+    saveDirectory: path.join(os.tmpdir(), "definitely-missing-eu5-saves"),
+    ledgerReader: () => []
+  });
+  const model = buildLiveMonitoringModel(generated);
+  assert.deepEqual(model.currentState, generated.currentState);
+  assert.deepEqual(model.currentObservations, generated.currentObservations);
+  assert.equal(model.isLive, true);
 });
 
 test("live poller retains last good data when a later refresh fails", async () => {
@@ -246,4 +282,219 @@ test("stop then start launches a current-generation poll while the old request i
   await new Promise((resolve) => setImmediate(resolve));
   assert.deepEqual(updates, ["current-feed"]);
   poller.stop();
+});
+
+test("human view never promotes unverified nation values into campaign statistics", () => {
+  const nation = record("nation_snapshot", 0, "unverified");
+  nation.provenance.freshness = "fresh";
+  nation.subject = { campaignId: "holland-test", countryId: "HOL" };
+  nation.payload = {
+    state: {
+      country: { name: "Holland" },
+      gameDate: "1337-04-14",
+      paused: true,
+      economy: { treasury: 120, monthlyBalance: 4.5 }
+    }
+  };
+  const view = buildHumanMonitoringView(buildMonitoringModel(bundle([nation])));
+  assert.equal(view.country, "Country unknown");
+  assert.equal(view.gameDate, "Date unknown");
+  assert.equal(view.nationVerification, "unknown");
+  assert.ok(view.metrics.every((metric) => metric.status === "unknown"));
+  assert.match(view.alerts[0].message, /no coherent, fresh, verified nation state/i);
+});
+
+test("human view renders Holland, date, and treasury only from corroborated verified currentState", () => {
+  const current = record("nation_snapshot", 1, "verified");
+  current.provenance.freshness = "fresh";
+  current.subject = {
+    campaignId: "holland-test",
+    countryId: "country-42",
+    countryTag: "HOL",
+    countryName: "Holland"
+  };
+  current.payload = {
+    domain: "economy",
+    gameDate: "1337-05-01",
+    capturedAtUtc: "2026-07-26T10:00:00.000Z",
+    paused: true,
+    metrics: {
+      treasury: { value: 108, unit: "ducats" },
+      monthlyBalance: { value: 2, unit: "ducats_per_month" }
+    }
+  };
+  const proposal = record("llm_action_proposed", 2);
+  proposal.payload = {
+    actionId: "open_markets",
+    risk: "read-only",
+    expectedVisibleResult: "Markets panel opens"
+  };
+  const health = record("health", 3, "verified");
+  health.provenance.freshness = "fresh";
+  health.payload = {
+    component: "structured-debug-log",
+    status: "available",
+    recognizedRecordCount: 3
+  };
+
+  const currentState = {
+    status: "partial",
+    campaignId: "holland-test",
+    country: { id: "country-42", tag: "HOL", name: "Holland" },
+    gameDate: "1337-05-01",
+    paused: true,
+    updatedAtUtc: "2026-07-26T10:00:00.000Z",
+    domains: {
+      economy: {
+        recordId: current.recordId,
+        capturedAtUtc: current.payload.capturedAtUtc,
+        gameDate: current.payload.gameDate,
+        paused: true,
+        metrics: current.payload.metrics
+      }
+    },
+    warnings: ["Missing markets telemetry."]
+  };
+  const view = buildHumanMonitoringView(buildLiveMonitoringModel(
+    liveFeed([current, proposal, health], currentState)
+  ));
+  assert.equal(view.country, "Holland (HOL)");
+  assert.equal(view.gameDate, "1337-05-01");
+  assert.equal(view.pause, "Paused");
+  assert.equal(view.nationVerification, "verified");
+  assert.equal(view.metrics.find((metric) => metric.id === "treasury").value, "108");
+  assert.equal(view.metrics.find((metric) => metric.id === "treasury").unit, "ducats");
+  assert.equal(view.metrics.find((metric) => metric.id === "income").status, "unknown");
+  assert.equal(view.timeline[0].title, "LLM proposed: open_markets");
+  assert.deepEqual(view.health[0], {
+    component: "structured-debug-log",
+    status: "available",
+    count: 3,
+    verified: true
+  });
+});
+
+test("human view rejects an unverified record even when currentState claims Holland treasury", () => {
+  const claimed = record("nation_snapshot", 1, "unverified");
+  claimed.provenance.freshness = "fresh";
+  claimed.subject = {
+    campaignId: "holland-test",
+    countryTag: "HOL",
+    countryName: "Holland"
+  };
+  claimed.payload = {
+    domain: "economy",
+    metrics: { treasury: { value: 999, unit: "ducats" } }
+  };
+  const claimedState = {
+    status: "partial",
+    campaignId: "holland-test",
+    country: { tag: "HOL", name: "Holland" },
+    gameDate: "1337-05-01",
+    paused: true,
+    updatedAtUtc: "2026-07-26T10:00:00.000Z",
+    domains: {
+      economy: {
+        recordId: claimed.recordId,
+        metrics: claimed.payload.metrics
+      }
+    },
+    warnings: []
+  };
+  const view = buildHumanMonitoringView(
+    buildLiveMonitoringModel(liveFeed([claimed], claimedState))
+  );
+  assert.equal(view.country, "Country unknown");
+  assert.equal(view.metrics.find((metric) => metric.id === "treasury").status, "unknown");
+});
+
+test("human view rejects currentState header facts that do not match its verified domain record", () => {
+  const source = record("nation_snapshot", 1, "verified");
+  source.provenance.freshness = "fresh";
+  source.subject = {
+    campaignId: "holland-test",
+    countryTag: "HOL",
+    countryName: "Holland"
+  };
+  source.payload = {
+    domain: "economy",
+    gameDate: "1337-05-01",
+    paused: true,
+    metrics: { treasury: { value: 108, unit: "ducats" } }
+  };
+  const forgedHeader = {
+    status: "partial",
+    campaignId: "holland-test",
+    country: { tag: "HOL", name: "Holland" },
+    gameDate: "1337-06-01",
+    paused: true,
+    updatedAtUtc: "2026-07-26T10:00:00.000Z",
+    domains: {
+      economy: {
+        recordId: source.recordId,
+        gameDate: source.payload.gameDate,
+        paused: true,
+        metrics: source.payload.metrics
+      }
+    },
+    warnings: []
+  };
+  const view = buildHumanMonitoringView(
+    buildLiveMonitoringModel(liveFeed([source], forgedHeader))
+  );
+  assert.equal(view.country, "Country unknown");
+  assert.equal(view.gameDate, "Date unknown");
+});
+
+test("partial observations remain visibly unverified and never populate statistic cards", () => {
+  const observations = {
+    status: "partial",
+    country: null,
+    gameDate: null,
+    domains: {
+      economy: {
+        captureGroupId: "economy-1",
+        updatedAtUtc: "2026-07-26T10:00:00.000Z",
+        fields: {
+          treasuryClass: { value: "non_negative", availability: "available" },
+          treasury: {
+            value: null,
+            availability: "unavailable",
+            unit: "gold",
+            reason: "no_json_safe_scalar_serializer"
+          }
+        }
+      }
+    }
+  };
+  const view = buildHumanMonitoringView(
+    buildLiveMonitoringModel(liveFeed([], {
+      status: "unavailable",
+      country: null,
+      gameDate: null,
+      paused: null,
+      updatedAtUtc: null,
+      domains: {},
+      warnings: []
+    }, observations))
+  );
+  assert.equal(view.observations.length, 2);
+  assert.equal(view.observations[0].value, "non_negative");
+  assert.equal(view.metrics.find((metric) => metric.id === "treasury").status, "unknown");
+});
+
+test("dashboard markup is summary-first, accessible, responsive, and hides raw records by default", () => {
+  const dashboardDirectory = path.join(__dirname, "..", "dashboard");
+  const html = fs.readFileSync(path.join(dashboardDirectory, "index.html"), "utf8");
+  const css = fs.readFileSync(path.join(dashboardDirectory, "styles.css"), "utf8");
+  assert.match(html, /id="country-name"/);
+  assert.match(html, /aria-label="Verified nation statistics"/);
+  assert.match(html, /aria-live="polite"/);
+  assert.match(html, /<details class="panel technical-details">/);
+  assert.match(html, /<summary>Technical details<\/summary>/);
+  assert.doesNotMatch(html, /<details class="panel technical-details" open/);
+  assert.match(html, /id="human-timeline"/);
+  assert.match(html, /id="human-observations"/);
+  assert.match(css, /@media \(max-width: 660px\)/);
+  assert.match(css, /\.visually-hidden/);
 });

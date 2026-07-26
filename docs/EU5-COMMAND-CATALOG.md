@@ -7,6 +7,29 @@ nested Windows MCP client and never sends input. The Win32 script is not an
 authoritative input route: it can test a procedure, but does not prove that EU5
 accepted an input.
 
+The machine-readable authoritative catalogue is
+`src/control/control-procedure-catalog.js` with schema identifier
+`eu5.control-procedure-catalog/v1`. It contains only named procedures:
+`focus_game`, `pause`, `open_control_panel`, `refresh_state`, `open_capital`,
+`economy`, `markets`, `diplomacy`, `military`, `alerts`, `back`, and `close`.
+Every entry fixes its target type, expected evidence, risk class, one-use
+authorization, and idempotency rules. In v1 every entry is a disabled candidate:
+`dispatch` is `null`, `operationalStatus` is
+`candidate_requires_live_proof`, and `nonOperationalReason` records the
+missing proof.
+
+`src/control/control-procedure-gate.js` rejects stale observations, ambiguous
+or incorrectly focused windows, modals, focused text fields, test-session
+mismatches, unexpected starting screens, and every route without live proof.
+Missing acknowledgement or an inconclusive post-state would be
+`execution_unknown` for a future admitted route; current disabled candidates
+are rejected before dispatch or outcome verification.
+
+The catalogue currently returns no dispatch metadata. It does not authorize
+MCP-to-MCP calls, clicks, typing, console text, effects, coordinates, or
+macros. A route may gain fixed direct Computer Use metadata only after three
+clean live repetitions and independent review.
+
 ## Current input status (2026-07-26)
 
 The reviewed `agent-ctrl-fkeys.bindings` profile works when the user presses
@@ -16,20 +39,17 @@ Computer Use keyboard path after each had identified and activated the unique
 `eu5.exe` window. Treat both as **non-operational** for EU5 keyboard control
 until an alternative input driver produces a visible, repeatable result.
 
-Target-window mouse clicks do work. The following points were verified on the
-current 1536x900 EU5 window only; they are relative to the game window and
-must be re-observed after a resolution, scale, or UI-layout change.
+Some target-window clicks were observed historically on one 1536x900 layout,
+but that calibration is not a coordinate-free semantic route and did not pass
+the required live-proof gate. The MCP therefore withholds the coordinates and
+returns no click procedure.
 
-| Procedure | Relative point | Verified visible result |
-|---|---:|---|
-| `open_economy_click` | `(84, 121)` | Economy panel opens. |
-| `open_diplomacy_click` | `(256, 121)` | Diplomacy panel opens. |
-| `open_military_click` | `(313, 121)` | Military panel opens. |
-| `open_government_click` | `(27, 121)` | Government panel opens. |
-| `open_production_click` | `(142, 121)` | Production panel opens. |
-| `open_society_click` | `(198, 121)` | Society panel opens. |
-| `open_geopolitics_click` | `(370, 121)` | Geopolitics panel opens. |
-| `open_advances_click` | `(426, 121)` | Advances panel opens. |
+| Candidate family | Current status |
+|---|---|
+| Top-level panel clicks | Disabled; coordinates withheld. |
+| Ctrl+function-key bindings | Disabled for programmatic input; physical-key observations do not prove Computer Use delivery. |
+| EU5 Control panel opener | Disabled; no persistent visible opener exists. |
+| EU5 Control panel buttons | Disabled for Computer Use; the snapshot button was proven only by a human click. |
 
 ### Verified inner route
 
@@ -71,15 +91,10 @@ action.
 
 ## Operational invocation
 
-For a catalogued command, the agent performs this fixed sequence:
-
-1. Capture the current screen; stop on an active modal or text field.
-2. Use a proven EU5-compatible input route to focus EU5.
-3. Send the exact table hotkey or verified window-relative click through that route.
-4. Capture the screen again and verify the expected visible result.
-
-No arbitrary shortcut is used. A hotkey is not considered successful merely
-because Windows reports that it was sent.
+There is currently no operational invocation. Catalogue lookup returns
+disabled metadata only. It never returns a hotkey tool call, click coordinate,
+or dispatch instruction. Admission requires a future coordinate-free route,
+three clean live repetitions, and independent review.
 
 ## Experimental Win32 runner
 

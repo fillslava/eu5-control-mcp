@@ -4,171 +4,177 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="dark">
-    <title>EU5 Before / After Snapshot Dashboard</title>
+    <title>EU5 Command Monitor</title>
     <link rel="stylesheet" href="./styles.css">
   </head>
   <body>
     <main class="shell">
       <header class="hero">
         <div>
-          <p class="eyebrow">Local comparison tool</p>
-          <h1>EU5 before / after</h1>
-          <p class="hero-copy">
-            Compare supplied snapshots and, when served locally, monitor the recognized
-            EU5 control feed. Nothing is uploaded.
-          </p>
+          <p class="eyebrow">Local command monitor</p>
+          <h1>EU5 campaign status</h1>
+          <p class="hero-copy">A readable view of verified nation data, game observations, and LLM actions. Nothing is uploaded.</p>
         </div>
-        <div id="overall-status" class="status status-waiting" role="status" aria-live="polite">
-          Awaiting verified snapshots
-        </div>
+        <div id="overall-status" class="status status-waiting" role="status" aria-live="polite">Awaiting verified snapshots</div>
       </header>
 
-      <section class="panel input-panel" aria-labelledby="input-heading">
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow">Input</p>
-            <h2 id="input-heading">Supply snapshots</h2>
+      <section id="monitoring-panel" class="monitoring-panel" hidden aria-labelledby="monitoring-heading">
+        <article class="panel command-header">
+          <div class="command-identity">
+            <p class="eyebrow">Current campaign</p>
+            <h2 id="monitoring-heading"><span id="country-name">Country unknown</span></h2>
+            <div class="campaign-context" aria-label="Current campaign context">
+              <span id="game-date">Date unknown</span>
+              <span aria-hidden="true">·</span>
+              <span id="pause-state">Pause unknown</span>
+              <span id="nation-trust" class="badge badge-unknown">Unverified</span>
+            </div>
           </div>
-          <button id="reset-button" class="button button-secondary" type="button">Clear</button>
-        </div>
-
-        <div class="input-grid">
-          <label class="file-field file-field-pair">
-            <span class="file-field-title">Snapshot pair JSON</span>
-            <span class="file-field-help">A pair/v1 document containing before and after snapshots (1 MiB maximum)</span>
-            <input id="pair-file" type="file" accept=".json,application/json">
-          </label>
-          <label class="file-field">
-            <span class="file-field-title">Optional exported monitoring JSON</span>
-            <span class="file-field-help">For offline review only. This input does not accept or parse .eu5 save files.</span>
-            <input id="monitoring-file" type="file" accept=".json,application/json">
-          </label>
-          <div class="or-divider" aria-hidden="true"><span>or</span></div>
-          <label class="file-field">
-            <span class="file-field-title">Before snapshot JSON</span>
-            <span class="file-field-help">A snapshot/v1 document with role “before” (1 MiB maximum)</span>
-            <input id="before-file" type="file" accept=".json,application/json">
-          </label>
-          <label class="file-field">
-            <span class="file-field-title">After snapshot JSON</span>
-            <span class="file-field-help">A snapshot/v1 document with role “after” (1 MiB maximum)</span>
-            <input id="after-file" type="file" accept=".json,application/json">
-          </label>
-        </div>
-        <p id="input-message" class="input-message">
-          Snapshot comparison is optional. When this page is served by the local monitor,
-          operational records load automatically; .eu5 saves are observed by the server,
-          not uploaded here.
-        </p>
-      </section>
-
-      <section id="monitoring-panel" class="panel detail-panel monitoring-panel" hidden aria-labelledby="monitoring-heading">
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow">Local monitoring</p>
-            <h2 id="monitoring-heading">Operational record bundle</h2>
+          <div class="live-cluster">
+            <div id="live-status" class="status status-waiting live-status" role="status" aria-live="polite">Detecting local feed</div>
+            <p id="freshness-label" class="freshness-label">No refresh received</p>
           </div>
-          <div id="live-status" class="status status-waiting live-status" role="status" aria-live="polite">
-            Detecting local feed
-          </div>
-        </div>
-        <p id="monitoring-summary" class="input-message"></p>
-        <div class="monitoring-warnings"><strong>Integrity and provenance warnings</strong><ul id="monitoring-warnings"></ul></div>
-        <div class="monitoring-grid">
-          <article><h3>Action ledger</h3><div class="table-wrap"><table><tbody id="ledger-body"></tbody></table></div></article>
-          <article><h3>Health</h3><div class="table-wrap"><table><tbody id="health-body"></tbody></table></div></article>
-          <article><h3>Action / event timeline</h3><div class="table-wrap"><table><tbody id="timeline-body"></tbody></table></div></article>
-          <article><h3>Nation snapshots</h3><div class="table-wrap"><table><tbody id="nation-body"></tbody></table></div></article>
-          <article><h3>Provenance</h3><div class="table-wrap"><table><tbody id="provenance-body"></tbody></table></div></article>
-        </div>
-      </section>
-
-      <section id="fixture-warning" class="fixture-warning" hidden>
-        <strong>Fixture / example data</strong>
-        <span id="fixture-label"></span>
-      </section>
-
-      <section class="snapshot-grid" aria-label="Snapshot provenance">
-        <article class="panel snapshot-card">
-          <div class="card-heading">
-            <p class="eyebrow">Pre-state</p>
-            <h2>Before</h2>
-          </div>
-          <dl class="metadata-list">
-            <div><dt>Source</dt><dd id="before-source">Not supplied</dd></div>
-            <div><dt>Captured</dt><dd id="before-captured">Unknown</dd></div>
-            <div><dt>Game time</dt><dd id="before-game-time">Unknown</dd></div>
-            <div><dt>Freshness</dt><dd><span id="before-freshness" class="badge badge-unknown">Unknown</span></dd></div>
-            <div><dt>Verification</dt><dd><span id="before-verification" class="badge badge-unknown">Unknown</span></dd></div>
-          </dl>
         </article>
 
-        <article class="panel snapshot-card">
-          <div class="card-heading">
-            <p class="eyebrow">Post-state</p>
-            <h2>After</h2>
+        <section id="alert-region" class="alert-stack" aria-labelledby="alert-heading">
+          <h2 id="alert-heading" class="visually-hidden">Data and campaign alerts</h2>
+          <ul id="human-alerts"></ul>
+        </section>
+
+        <section id="observation-panel" class="panel observation-panel" hidden aria-labelledby="observation-heading">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Partial bridge output</p>
+              <h2 id="observation-heading">Unverified observations</h2>
+            </div>
+            <span class="badge badge-unverified">Not nation statistics</span>
           </div>
-          <dl class="metadata-list">
-            <div><dt>Source</dt><dd id="after-source">Not supplied</dd></div>
-            <div><dt>Captured</dt><dd id="after-captured">Unknown</dd></div>
-            <div><dt>Game time</dt><dd id="after-game-time">Unknown</dd></div>
-            <div><dt>Freshness</dt><dd><span id="after-freshness" class="badge badge-unknown">Unknown</span></dd></div>
-            <div><dt>Verification</dt><dd><span id="after-verification" class="badge badge-unknown">Unknown</span></dd></div>
-          </dl>
-        </article>
+          <p class="observation-note">These categorical facts may guide inspection, but they are not promoted into the verified country cards.</p>
+          <ul id="human-observations" class="observation-list"></ul>
+        </section>
+
+        <section class="stat-groups" aria-label="Verified nation statistics">
+          <article class="panel stat-group">
+            <div class="group-heading"><span class="group-icon" aria-hidden="true">¤</span><h2>Economy</h2></div>
+            <div id="economy-cards" class="stat-card-grid"></div>
+          </article>
+          <article class="panel stat-group">
+            <div class="group-heading"><span class="group-icon" aria-hidden="true">⇄</span><h2>Markets</h2></div>
+            <div id="markets-cards" class="stat-card-grid"></div>
+          </article>
+          <article class="panel stat-group">
+            <div class="group-heading"><span class="group-icon" aria-hidden="true">⚑</span><h2>Diplomacy</h2></div>
+            <div id="diplomacy-cards" class="stat-card-grid"></div>
+          </article>
+          <article class="panel stat-group">
+            <div class="group-heading"><span class="group-icon" aria-hidden="true">◆</span><h2>Military</h2></div>
+            <div id="military-cards" class="stat-card-grid"></div>
+          </article>
+        </section>
+
+        <div class="operations-grid">
+          <section class="panel timeline-panel" aria-labelledby="timeline-heading">
+            <div class="section-heading">
+              <div><p class="eyebrow">Decision trail</p><h2 id="timeline-heading">LLM actions & game events</h2></div>
+            </div>
+            <ol id="human-timeline" class="human-timeline"></ol>
+          </section>
+          <section class="panel health-panel" aria-labelledby="health-heading">
+            <div class="section-heading">
+              <div><p class="eyebrow">Connection</p><h2 id="health-heading">Component health</h2></div>
+            </div>
+            <ul id="human-health" class="health-list"></ul>
+          </section>
+        </div>
+
+        <details class="panel technical-details">
+          <summary>Technical details</summary>
+          <p id="monitoring-summary" class="input-message"></p>
+          <div class="monitoring-warnings"><strong>Integrity and provenance warnings</strong><ul id="monitoring-warnings"></ul></div>
+          <div class="monitoring-grid">
+            <article><h3>Action ledger</h3><div class="table-wrap"><table><tbody id="ledger-body"></tbody></table></div></article>
+            <article><h3>Health records</h3><div class="table-wrap"><table><tbody id="health-body"></tbody></table></div></article>
+            <article><h3>Raw action/event records</h3><div class="table-wrap"><table><tbody id="timeline-body"></tbody></table></div></article>
+            <article><h3>Nation records</h3><div class="table-wrap"><table><tbody id="nation-body"></tbody></table></div></article>
+            <article><h3>Provenance</h3><div class="table-wrap"><table><tbody id="provenance-body"></tbody></table></div></article>
+          </div>
+        </details>
       </section>
 
-      <section class="metrics-grid" aria-label="Comparison summary">
-        <article class="metric metric-changed">
-          <span class="metric-label">Changed</span>
-          <strong id="changed-count">—</strong>
-        </article>
-        <article class="metric metric-unchanged">
-          <span class="metric-label">Unchanged</span>
-          <strong id="unchanged-count">—</strong>
-        </article>
-        <article class="metric metric-unknown">
-          <span class="metric-label">Unknown</span>
-          <strong id="unknown-count">—</strong>
-        </article>
-      </section>
-
-      <section class="panel detail-panel" aria-labelledby="detail-heading">
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow">Field-level comparison</p>
-            <h2 id="detail-heading">Details</h2>
+      <details class="panel import-details">
+        <summary>Offline import and before/after comparison</summary>
+        <section class="input-panel" aria-labelledby="input-heading">
+          <div class="section-heading">
+            <div><p class="eyebrow">Optional input</p><h2 id="input-heading">Supply exported JSON</h2></div>
+            <button id="reset-button" class="button button-secondary" type="button">Clear</button>
           </div>
-          <label class="filter-field">
-            <span>Show</span>
-            <select id="status-filter">
-              <option value="all">All fields</option>
-              <option value="changed">Changed</option>
-              <option value="unchanged">Unchanged</option>
-              <option value="unknown">Unknown</option>
-            </select>
-          </label>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th scope="col">Field</th>
-                <th scope="col">Before</th>
-                <th scope="col">After</th>
-                <th scope="col">Status</th>
-              </tr>
-            </thead>
-            <tbody id="detail-body">
-              <tr class="empty-row">
-                <td colspan="4">Awaiting verified snapshots. No game-state values are loaded.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
+          <div class="input-grid">
+            <label class="file-field file-field-pair">
+              <span class="file-field-title">Snapshot pair JSON</span>
+              <span class="file-field-help">A pair/v1 document containing before and after snapshots</span>
+              <input id="pair-file" type="file" accept=".json,application/json">
+            </label>
+            <label class="file-field">
+              <span class="file-field-title">Monitoring bundle JSON</span>
+              <span class="file-field-help">Offline review only; .eu5 saves are observed by the server</span>
+              <input id="monitoring-file" type="file" accept=".json,application/json">
+            </label>
+            <label class="file-field">
+              <span class="file-field-title">Before snapshot JSON</span>
+              <input id="before-file" type="file" accept=".json,application/json">
+            </label>
+            <label class="file-field">
+              <span class="file-field-title">After snapshot JSON</span>
+              <input id="after-file" type="file" accept=".json,application/json">
+            </label>
+          </div>
+          <p id="input-message" class="input-message">Live monitoring loads automatically on localhost. Imported records never become verified merely by being displayed.</p>
+        </section>
+
+        <section id="fixture-warning" class="fixture-warning" hidden>
+          <strong>Fixture / example data</strong><span id="fixture-label"></span>
+        </section>
+        <section class="snapshot-grid" aria-label="Snapshot provenance">
+          <article class="snapshot-card">
+            <div class="card-heading"><p class="eyebrow">Pre-state</p><h2>Before</h2></div>
+            <dl class="metadata-list">
+              <div><dt>Source</dt><dd id="before-source">Not supplied</dd></div>
+              <div><dt>Captured</dt><dd id="before-captured">Unknown</dd></div>
+              <div><dt>Game time</dt><dd id="before-game-time">Unknown</dd></div>
+              <div><dt>Freshness</dt><dd><span id="before-freshness" class="badge badge-unknown">Unknown</span></dd></div>
+              <div><dt>Verification</dt><dd><span id="before-verification" class="badge badge-unknown">Unknown</span></dd></div>
+            </dl>
+          </article>
+          <article class="snapshot-card">
+            <div class="card-heading"><p class="eyebrow">Post-state</p><h2>After</h2></div>
+            <dl class="metadata-list">
+              <div><dt>Source</dt><dd id="after-source">Not supplied</dd></div>
+              <div><dt>Captured</dt><dd id="after-captured">Unknown</dd></div>
+              <div><dt>Game time</dt><dd id="after-game-time">Unknown</dd></div>
+              <div><dt>Freshness</dt><dd><span id="after-freshness" class="badge badge-unknown">Unknown</span></dd></div>
+              <div><dt>Verification</dt><dd><span id="after-verification" class="badge badge-unknown">Unknown</span></dd></div>
+            </dl>
+          </article>
+        </section>
+        <section class="metrics-grid" aria-label="Comparison summary">
+          <article class="metric metric-changed"><span class="metric-label">Changed</span><strong id="changed-count">—</strong></article>
+          <article class="metric metric-unchanged"><span class="metric-label">Unchanged</span><strong id="unchanged-count">—</strong></article>
+          <article class="metric metric-unknown"><span class="metric-label">Unknown</span><strong id="unknown-count">—</strong></article>
+        </section>
+        <section class="detail-panel" aria-labelledby="detail-heading">
+          <div class="section-heading">
+            <div><p class="eyebrow">Field-level comparison</p><h2 id="detail-heading">Details</h2></div>
+            <label class="filter-field"><span>Show</span><select id="status-filter"><option value="all">All fields</option><option value="changed">Changed</option><option value="unchanged">Unchanged</option><option value="unknown">Unknown</option></select></label>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th scope="col">Field</th><th scope="col">Before</th><th scope="col">After</th><th scope="col">Status</th></tr></thead>
+              <tbody id="detail-body"><tr class="empty-row"><td colspan="4">Awaiting verified snapshots. No game-state values are loaded.</td></tr></tbody>
+            </table>
+          </div>
+        </section>
+      </details>
     </main>
-
     <script src="./app.js"></script>
   </body>
 </html>

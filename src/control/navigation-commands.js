@@ -39,17 +39,21 @@ function prepareNavigationCommand(name) {
   return {
     id: `eu5.${name}`,
     name,
-    ...command,
+    risk: command.risk,
+    expectedVisibleResult: command.expectedVisibleResult,
+    bindingReference: command.hotkey,
+    operational: false,
+    status: "candidate_requires_live_proof",
+    dispatch: null,
+    nonOperationalReason:
+      "The binding is documented, but programmatic keyboard delivery to EU5 is not live-proven and remains non-operational.",
     preconditions: [
       "Europa Universalis V is the active window.",
       "No text-entry field or modal dialog is focused.",
       "The agent-navigation bindings profile is active."
     ],
-    directWindowsMcpProcedure: {
-      tool: "Shortcut",
-      arguments: { shortcut: command.hotkey }
-    },
-    verification: "After an external controller sends the hotkey, capture the visible UI and compare it with expectedVisibleResult."
+    verification:
+      "No dispatch is allowed. A future route requires three clean live repetitions and independent review before admission."
   };
 }
 

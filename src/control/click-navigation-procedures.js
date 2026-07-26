@@ -87,27 +87,21 @@ function prepareClickNavigation(name, viewport) {
     );
   }
 
-  const scaledX = Math.round(procedure.x * viewport.width / BASELINE_VIEWPORT.width);
-  const scaledY = Math.round(procedure.y * viewport.height / BASELINE_VIEWPORT.height);
-
   return {
     id: `eu5.${name}`,
     name,
     viewport: { width: viewport.width, height: viewport.height },
-    status: "provisional_non_operational",
+    status: "candidate_requires_live_proof",
     operational: false,
+    dispatch: null,
     risk: "read_only",
     expectedVisibleResult: procedure.expectedVisibleResult,
-    candidateComputerUseProcedure: {
-      action: "click",
-      coordinate: [scaledX, scaledY]
-    },
-    targetVerificationRequired: true,
-    targetVerification:
-      "Do not execute this candidate from viewport scaling alone. Before any external Computer Use controller clicks, inspect a fresh screenshot and visually confirm that the coordinate is centered on the named navigation target.",
+    nonOperationalReason:
+      "Legacy viewport-relative calibration is not a live-proven, coordinate-free Computer Use route. Coordinates are intentionally withheld.",
+    targetVerificationRequired: false,
     verificationRequired: true,
     verification:
-      "If a visually confirmed candidate is later clicked by an external controller, capture another fresh visible UI observation and compare it with expectedVisibleResult."
+      "No click is prepared. A future semantic route requires three clean live repetitions and independent review before admission."
   };
 }
 

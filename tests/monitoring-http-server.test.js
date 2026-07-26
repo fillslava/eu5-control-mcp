@@ -3,8 +3,15 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { once } = require("node:events");
+const fs = require("node:fs");
 const http = require("node:http");
+const os = require("node:os");
+const path = require("node:path");
 const { createDashboardServer } = require("../src/monitoring/dashboard-server");
+const {
+  CONTROL_LOG_SCHEMA,
+  buildLiveFeed
+} = require("../src/monitoring/live-feed");
 
 function feed() {
   return {
@@ -26,6 +33,15 @@ async function withServer(t) {
   return `http://127.0.0.1:${address.port}`;
 }
 
+async function withFeedBuilderServer(t, feedBuilder) {
+  const server = createDashboardServer({ feedBuilder });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  t.after(() => server.close());
+  const address = server.address();
+  return `http://127.0.0.1:${address.port}`;
+}
+
 test("loopback server exposes no-store live feed and dashboard", async (t) => {
   const base = await withServer(t);
   const api = await fetch(`${base}/api/monitoring`);
@@ -36,7 +52,7 @@ test("loopback server exposes no-store live feed and dashboard", async (t) => {
 
   const page = await fetch(`${base}/`);
   assert.equal(page.status, 200);
-  assert.match(await page.text(), /EU5 before \/ after/);
+  assert.match(await page.text(), /EU5 Command Monitor/);
 });
 
 test("loopback server rejects mutation and traversal", async (t) => {
@@ -68,4 +84,76 @@ test("loopback server rejects a non-loopback Host header", async (t) => {
     request.end();
   });
   assert.equal(status, 421);
+});
+
+test("monitoring endpoint stays available for real v0.3.0 partial headers and facts", async (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "eu5-http-v030-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const logPath = path.join(root, "debug.log");
+  const header = {
+    schemaVersion: CONTROL_LOG_SCHEMA,
+    recordType: "economy_snapshot",
+    procedure: "emit_economy_snapshot",
+    section: "economy",
+    modVersion: "0.3.0",
+    status: "acknowledged",
+    completeness: "partial",
+    observationJoinRequired: true
+  };
+  const availableFact = {
+    schemaVersion: CONTROL_LOG_SCHEMA,
+    recordType: "telemetry_fact",
+    procedure: "emit_economy_snapshot",
+    section: "economy",
+    field: "monthlyBalanceClass",
+    value: "non_negative",
+    availability: "available",
+    modVersion: "0.3.0",
+    status: "observed"
+  };
+  const unavailableFact = {
+    schemaVersion: CONTROL_LOG_SCHEMA,
+    recordType: "telemetry_fact",
+    procedure: "emit_economy_snapshot",
+    section: "economy",
+    field: "monthlyBalance",
+    value: null,
+    unit: "gold_per_month",
+    availability: "unavailable",
+    reason: "no_json_safe_scalar_serializer",
+    modVersion: "0.3.0",
+    status: "observed"
+  };
+  const wrap = (record, line) =>
+    `[17:00:16][jomini_effect_impl.cpp:479]: common/scripted_guis/eu5_control_debug.txt:${line}: EU5_CONTROL ${JSON.stringify(record)}`;
+  fs.writeFileSync(logPath, [
+    wrap(header, 300),
+    wrap(availableFact, 301),
+    wrap(unavailableFact, 302)
+  ].join("\n"));
+  const now = () => fs.statSync(logPath).mtimeMs;
+  const base = await withFeedBuilderServer(t, () => buildLiveFeed({
+    logPath,
+    now,
+    ledgerReader: () => [],
+    saveDirectory: "Z:\\missing\\saves"
+  }));
+  const response = await fetch(`${base}/api/monitoring`);
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  const body = await response.json();
+  assert.equal(body.currentObservations.status, "partial");
+  assert.equal(
+    body.currentObservations.domains.economy.fields.monthlyBalanceClass.value,
+    "non_negative"
+  );
+  assert.equal(
+    body.currentObservations.domains.economy.fields.monthlyBalance.value,
+    null
+  );
+  assert.equal(
+    body.currentObservations.domains.economy.fields.monthlyBalance.availability,
+    "unavailable"
+  );
+  assert.doesNotMatch(JSON.stringify(body), /undefined|debug\.log|eu5-http-v030/i);
 });

@@ -27,13 +27,16 @@ test("MCP server lists and runs its read-only tools", async (t) => {
   const { tools } = await client.listTools();
   assert.deepEqual(tools.map((tool) => tool.name).sort(), [
     "eu5_authorize_action",
+    "eu5_classify_control_procedure_outcome",
     "eu5_declare_action",
     "eu5_dispatch_action",
     "eu5_issue_navigation_command",
+    "eu5_list_control_procedures",
     "eu5_list_debug_exports",
     "eu5_list_save_checkpoints",
     "eu5_observe_checkpoint",
     "eu5_prepare_click_navigation",
+    "eu5_prepare_control_procedure",
     "eu5_prepare_navigation_command",
     "eu5_preview_action",
     "eu5_record_action_outcome",
@@ -58,15 +61,13 @@ test("MCP server lists and runs its read-only tools", async (t) => {
     }
   });
   const preparedClick = JSON.parse(clickNavigation.content[0].text);
-  assert.deepEqual(preparedClick.candidateComputerUseProcedure, {
-    action: "click",
-    coordinate: [256, 120]
-  });
   assert.deepEqual(preparedClick.viewport, { width: 1538, height: 895 });
-  assert.equal(preparedClick.status, "provisional_non_operational");
+  assert.equal(preparedClick.status, "candidate_requires_live_proof");
   assert.equal(preparedClick.operational, false);
+  assert.equal(preparedClick.dispatch, null);
+  assert.equal("candidateComputerUseProcedure" in preparedClick, false);
   assert.equal(preparedClick.risk, "read_only");
-  assert.equal(preparedClick.targetVerificationRequired, true);
+  assert.equal(preparedClick.targetVerificationRequired, false);
   assert.equal(preparedClick.verificationRequired, true);
   assert.equal("executor" in preparedClick, false);
   assert.equal("directComputerUseProcedure" in preparedClick, false);
@@ -85,11 +86,10 @@ test("MCP server lists and runs its read-only tools", async (t) => {
     arguments: { name: "focus_capital" }
   });
   const preparedNavigation = JSON.parse(navigation.content[0].text);
-  assert.equal(preparedNavigation.hotkey, "ctrl+f11");
-  assert.deepEqual(preparedNavigation.directWindowsMcpProcedure, {
-    tool: "Shortcut",
-    arguments: { shortcut: "ctrl+f11" }
-  });
+  assert.equal(preparedNavigation.bindingReference, "ctrl+f11");
+  assert.equal(preparedNavigation.operational, false);
+  assert.equal(preparedNavigation.dispatch, null);
+  assert.equal("directWindowsMcpProcedure" in preparedNavigation, false);
   assert.equal("executor" in preparedNavigation, false);
 
   const issued = await client.callTool({

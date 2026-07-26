@@ -1,9 +1,28 @@
-# EU5 before / after dashboard
+# EU5 command monitor
 
-This is a dependency-free, local-only HTML dashboard for comparing two explicitly
-supplied EU5 state snapshots. It does not read saves, control the game, call a
-server, or upload data. Open `index.html` directly in a browser and select either
-one snapshot-pair JSON file or separate before and after JSON files.
+This is a dependency-free, local-only dashboard for monitoring recognized EU5
+observations and LLM action records. When served by the loopback monitor, the
+default view polls the local feed and presents a human-readable campaign header,
+economy/market/diplomacy/military cards, alerts, component health, and an action
+timeline. It never controls the game or uploads data.
+
+Raw records, provenance tables, and file imports are collapsed under
+**Technical details** and **Offline import and before/after comparison**. A
+statistic appears in the main cards only when it came from a fresh, verified
+`currentState` domain whose `recordId` is corroborated by a fresh, verified
+`nation_snapshot` record in the same feed. Cards read the normalized
+`domain.metrics[field] = { value, unit }` contract directly. Missing, stale,
+fixture, and unverified values remain visibly unknown rather than being inferred
+from save metadata or action acknowledgements.
+
+The server may also supply `currentObservations` from the fixed v0.3.0 partial
+bridge. These categorical or explicitly unavailable facts appear only in a
+separate **Unverified observations** panel. They never populate the verified
+country header or statistic cards.
+
+The older before/after comparison remains available for explicitly supplied JSON
+snapshots. Open `index.html` directly for offline mode, or use the loopback
+server for live monitoring.
 
 The initial state intentionally contains no game values and says **Awaiting
 verified snapshots**. `example.snapshot-pair.json` is a synthetic fixture for

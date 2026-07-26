@@ -509,7 +509,8 @@
       throw new Error("Live monitoring feed must be an object");
     }
     const allowedKeys = new Set([
-      "schemaVersion", "feedId", "generatedAtUtc", "sourceMode", "records", "integrity"
+      "schemaVersion", "feedId", "generatedAtUtc", "sourceMode", "records",
+      "currentState", "currentObservations", "integrity"
     ]);
     for (const key of Object.keys(feed)) {
       if (!allowedKeys.has(key)) {
@@ -531,6 +532,15 @@
       records: feed.records,
       integrity: feed.integrity
     });
+    for (const field of ["currentState", "currentObservations"]) {
+      if (field in feed) {
+        if (!isPlainObject(feed[field])) {
+          throw new Error(`${field} must be an object`);
+        }
+        validateStateBounds(feed[field], field);
+        validateMonitoringSafeValue(feed[field], field);
+      }
+    }
     return feed;
   }
 
@@ -613,7 +623,209 @@
     });
     model.bundle = feed;
     model.isLive = true;
+    model.currentState = feed.currentState || null;
+    model.currentObservations = feed.currentObservations || null;
     return model;
+  }
+
+  const HUMAN_METRICS = Object.freeze([
+    { id: "treasury", label: "Treasury", group: "Economy", domain: "economy", keys: ["treasury"] },
+    { id: "monthlyBalance", label: "Monthly balance", group: "Economy", domain: "economy", keys: ["monthlyBalance"] },
+    { id: "income", label: "Income", group: "Economy", domain: "economy", keys: ["monthlyIncome"] },
+    { id: "expenses", label: "Expenses", group: "Economy", domain: "economy", keys: ["monthlyExpenses"] },
+    { id: "food", label: "Food balance", group: "Markets", domain: "markets", keys: ["foodBalance"] },
+    { id: "marketAccess", label: "Market access", group: "Markets", domain: "markets", keys: ["marketAccess"] },
+    { id: "tradeIncome", label: "Trade income", group: "Markets", domain: "markets", keys: ["tradeIncome"] },
+    { id: "diplomaticCapacity", label: "Diplomatic capacity", group: "Diplomacy", domain: "diplomacy", keys: ["diplomaticCapacity"] },
+    { id: "warCount", label: "Wars", group: "Diplomacy", domain: "diplomacy", keys: ["warCount"] },
+    { id: "atWar", label: "At war", group: "Diplomacy", domain: "diplomacy", keys: ["atWar"] },
+    { id: "manpower", label: "Manpower", group: "Military", domain: "military", keys: ["manpower"] },
+    { id: "armyStrength", label: "Army strength", group: "Military", domain: "military", keys: ["armyStrength"] },
+    { id: "navyStrength", label: "Navy strength", group: "Military", domain: "military", keys: ["navyStrength", "navySize"] }
+  ]);
+
+  function displayMetricValue(value) {
+    if (value === MISSING) return "No verified data";
+    if (Array.isArray(value)) return value.length ? value.join(", ") : "None";
+    if (typeof value === "number") {
+      return new Intl.NumberFormat("en", { maximumFractionDigits: 2 }).format(value);
+    }
+    if (typeof value === "boolean") return value ? "Yes" : "No";
+    if (isPlainObject(value)) return `${Object.keys(value).length} item(s)`;
+    return String(value);
+  }
+
+  function verifiedCurrentState(model) {
+    const state = model.currentState;
+    if (
+      !isPlainObject(state) ||
+      !["partial", "available"].includes(state.status) ||
+      !isPlainObject(state.country) ||
+      !isPlainObject(state.domains)
+    ) {
+      return null;
+    }
+    const domains = {};
+    for (const [domainName, domain] of Object.entries(state.domains)) {
+      if (!isPlainObject(domain) || typeof domain.recordId !== "string") continue;
+      const source = model.bundle.records.find((record) =>
+        record.recordId === domain.recordId &&
+        record.recordType === "nation_snapshot" &&
+        record.provenance.verification.status === "verified" &&
+        record.provenance.freshness === "fresh" &&
+        record.subject.campaignId === state.campaignId &&
+        record.subject.countryTag === state.country.tag &&
+        record.subject.countryName === state.country.name &&
+        (state.country.id === undefined || record.subject.countryId === state.country.id) &&
+        record.payload.domain === domainName &&
+        record.payload.gameDate === domain.gameDate &&
+        record.payload.paused === domain.paused &&
+        state.gameDate === domain.gameDate &&
+        state.paused === domain.paused &&
+        stableValue(record.payload.metrics) === stableValue(domain.metrics)
+      );
+      if (source) domains[domainName] = domain;
+    }
+    if (!Object.keys(domains).length) return null;
+    return { ...state, domains };
+  }
+
+  function humanTimelineEntry(record) {
+    const payload = record.payload;
+    let title = "Game observation";
+    let detail = payload.label || payload.event || payload.procedure || "Recorded locally";
+    let tone = "neutral";
+    if (record.recordType === "llm_action_proposed") {
+      title = `LLM proposed: ${payload.actionId || "unnamed action"}`;
+      detail = payload.expectedVisibleResult || `Risk: ${payload.risk || "unknown"}`;
+      tone = "proposed";
+    } else if (record.recordType === "llm_action_outcome") {
+      title = `Action: ${payload.lifecycleState || "outcome"}`;
+      detail = payload.actualVisibleResult ||
+        (payload.uiInputExecuted === true ? "Input dispatched" : "No input execution confirmed");
+      tone = payload.verified === true ? "verified" : "outcome";
+    } else if (payload.event === "latest-save-observed") {
+      title = "Save checkpoint observed";
+      detail = `${payload.saveFile || "EU5 save"} · ${payload.saveCount || 0} save(s) available`;
+    } else if (payload.sourceRecordType) {
+      title = payload.sourceRecordType.replaceAll("_", " ");
+      detail = `${payload.procedure || "mod procedure"} · ${payload.status || "unknown result"}`;
+    }
+    return {
+      id: record.recordId,
+      title,
+      detail,
+      occurredAtUtc: record.occurredAtUtc,
+      verification: record.provenance.verification.status,
+      freshness: record.provenance.freshness,
+      tone
+    };
+  }
+
+  function buildHumanMonitoringView(model) {
+    const records = model.bundle.records;
+    const current = verifiedCurrentState(model);
+
+    const metrics = HUMAN_METRICS.map((definition) => {
+      const domain = current && current.domains[definition.domain];
+      let metric = MISSING;
+      if (domain && isPlainObject(domain.metrics)) {
+        for (const key of definition.keys) {
+          if (isPlainObject(domain.metrics[key])) {
+            metric = domain.metrics[key];
+            break;
+          }
+        }
+      }
+      const value = metric === MISSING || metric.value === null ? MISSING : metric.value;
+      return {
+        ...definition,
+        value: displayMetricValue(value),
+        rawValue: value === MISSING ? null : value,
+        unit: metric === MISSING ? null : metric.unit,
+        status: value === MISSING ? "unknown" : "verified",
+        delta: null
+      };
+    });
+
+    const health = records
+      .filter((record) => record.recordType === "health")
+      .map((record) => ({
+        component: record.payload.component || record.payload.sourceRecordType || "component",
+        status: record.payload.status || "unknown",
+        count: record.payload.recognizedRecordCount,
+        verified: record.provenance.verification.status === "verified"
+      }));
+    const alerts = model.warnings.map((message) => ({ level: "warning", message }));
+    if (!current) {
+      alerts.unshift({
+        level: "info",
+        message: "No coherent, fresh, verified nation state is available. Country statistics remain unknown."
+      });
+    } else if (Array.isArray(current.warnings)) {
+      alerts.unshift(...current.warnings.map((message) => ({ level: "info", message })));
+    }
+    for (const component of health) {
+      if (!["available", "acknowledged"].includes(component.status)) {
+        alerts.push({
+          level: "warning",
+          message: `${component.component}: ${component.status.replaceAll("-", " ")}.`
+        });
+      }
+    }
+
+    const observations = [];
+    const observationState = model.currentObservations;
+    if (
+      isPlainObject(observationState) &&
+      observationState.status === "partial" &&
+      isPlainObject(observationState.domains)
+    ) {
+      for (const [domain, detail] of Object.entries(observationState.domains)) {
+        if (!isPlainObject(detail) || !isPlainObject(detail.fields)) continue;
+        for (const [field, observation] of Object.entries(detail.fields)) {
+          if (!isPlainObject(observation)) continue;
+          observations.push({
+            domain,
+            field,
+            value: observation.availability === "available"
+              ? displayMetricValue(observation.value)
+              : "Unavailable",
+            availability: observation.availability || "unknown",
+            reason: observation.reason || null,
+            unit: observation.unit || null
+          });
+        }
+      }
+    }
+
+    return {
+      isLive: model.isLive === true,
+      generatedAtUtc: model.bundle.generatedAtUtc,
+      country: current ? `${current.country.name} (${current.country.tag})` : "Country unknown",
+      gameDate: current && current.gameDate ? current.gameDate : "Date unknown",
+      pause: current && typeof current.paused === "boolean"
+        ? current.paused ? "Paused" : "Running"
+        : "Pause unknown",
+      nationVerification: current ? "verified" : "unknown",
+      metrics,
+      groups: ["Economy", "Markets", "Diplomacy", "Military"].map((group) => ({
+        name: group,
+        metrics: metrics.filter((metric) => metric.group === group)
+      })),
+      health,
+      alerts,
+      observations,
+      timeline: records
+        .filter((record) =>
+          ["llm_action_proposed", "llm_action_outcome", "game_event"].includes(record.recordType)
+        )
+        .sort((left, right) =>
+          Date.parse(right.occurredAtUtc) - Date.parse(left.occurredAtUtc)
+        )
+        .slice(0, 20)
+        .map(humanTimelineEntry)
+    };
   }
 
   function createLivePoller({
@@ -836,9 +1048,136 @@
     }
   }
 
+  function renderHumanMetricCards(documentRef, container, metrics) {
+    container.replaceChildren();
+    for (const metric of metrics) {
+      const article = documentRef.createElement("article");
+      article.className = `stat-card stat-card-${metric.status}`;
+      const label = documentRef.createElement("span");
+      label.className = "stat-card-label";
+      setText(label, metric.label);
+      const value = documentRef.createElement("strong");
+      value.className = "stat-card-value";
+      setText(value, metric.unit && metric.status === "verified"
+        ? `${metric.value} ${metric.unit}`
+        : metric.value);
+      const source = documentRef.createElement("span");
+      source.className = "stat-card-source";
+      setText(source, metric.status === "verified" ? "Verified game export" : "Awaiting verified export");
+      article.append(label, value, source);
+      if (metric.delta !== null) {
+        const delta = documentRef.createElement("span");
+        delta.className = `metric-delta${metric.delta < 0 ? " metric-delta-negative" : ""}`;
+        setText(delta, `${metric.delta > 0 ? "+" : ""}${displayMetricValue(metric.delta)} since prior snapshot`);
+        article.appendChild(delta);
+      }
+      container.appendChild(article);
+    }
+  }
+
+  function renderHumanMonitoringView(documentRef, elements, model) {
+    const view = buildHumanMonitoringView(model);
+    setText(elements.countryName, view.country);
+    setText(elements.gameDate, view.gameDate);
+    setText(elements.pauseState, view.pause);
+    setBadge(
+      elements.nationTrust,
+      view.nationVerification === "verified" ? "Verified nation data" : "Nation data unknown",
+      view.nationVerification
+    );
+    const containers = {
+      Economy: elements.economyCards,
+      Markets: elements.marketsCards,
+      Diplomacy: elements.diplomacyCards,
+      Military: elements.militaryCards
+    };
+    for (const group of view.groups) {
+      renderHumanMetricCards(documentRef, containers[group.name], group.metrics);
+    }
+
+    elements.humanAlerts.replaceChildren();
+    for (const alert of view.alerts) {
+      const item = documentRef.createElement("li");
+      item.className = `alert-item alert-item-${alert.level}`;
+      setText(item, alert.message);
+      elements.humanAlerts.appendChild(item);
+    }
+    elements.alertRegion.hidden = view.alerts.length === 0;
+
+    elements.humanObservations.replaceChildren();
+    for (const observation of view.observations) {
+      const item = documentRef.createElement("li");
+      item.className = "observation-item";
+      const title = documentRef.createElement("strong");
+      setText(title, `${observation.domain}: ${observation.field}`);
+      const value = documentRef.createElement("span");
+      setText(
+        value,
+        `${observation.value}${observation.unit ? ` ${observation.unit}` : ""}` +
+        `${observation.reason ? ` · ${observation.reason.replaceAll("_", " ")}` : ""}`
+      );
+      item.append(title, value);
+      elements.humanObservations.appendChild(item);
+    }
+    elements.observationPanel.hidden = view.observations.length === 0;
+
+    elements.humanTimeline.replaceChildren();
+    if (!view.timeline.length) {
+      const empty = documentRef.createElement("li");
+      empty.className = "empty-row";
+      setText(empty, "No LLM actions or game events recorded yet.");
+      elements.humanTimeline.appendChild(empty);
+    }
+    for (const entry of view.timeline) {
+      const item = documentRef.createElement("li");
+      item.className = `timeline-item timeline-item-${entry.tone}`;
+      const dot = documentRef.createElement("span");
+      dot.className = "timeline-dot";
+      dot.setAttribute("aria-hidden", "true");
+      const copy = documentRef.createElement("div");
+      const title = documentRef.createElement("strong");
+      title.className = "timeline-title";
+      setText(title, entry.title);
+      const detail = documentRef.createElement("span");
+      detail.className = "timeline-detail";
+      setText(detail, entry.detail);
+      copy.append(title, detail);
+      const meta = documentRef.createElement("span");
+      meta.className = "timeline-meta";
+      setText(meta, `${entry.occurredAtUtc} · ${entry.verification} · ${entry.freshness}`);
+      item.append(dot, copy, meta);
+      elements.humanTimeline.appendChild(item);
+    }
+
+    elements.humanHealth.replaceChildren();
+    if (!view.health.length) {
+      const empty = documentRef.createElement("li");
+      setText(empty, "No component health records.");
+      elements.humanHealth.appendChild(empty);
+    }
+    for (const component of view.health) {
+      const item = documentRef.createElement("li");
+      item.className = "health-item";
+      const name = documentRef.createElement("span");
+      name.className = "health-name";
+      setText(name, component.component.replaceAll("-", " "));
+      const state = documentRef.createElement("span");
+      const good = component.status === "available" && component.verified;
+      state.className = `health-state${good ? " health-state-good" : ""}`;
+      setText(
+        state,
+        `${component.status.replaceAll("-", " ")}${Number.isSafeInteger(component.count) ? ` · ${component.count}` : ""}`
+      );
+      item.append(name, state);
+      elements.humanHealth.appendChild(item);
+    }
+    setText(elements.freshnessLabel, `Feed generated ${view.generatedAtUtc}`);
+  }
+
   function renderMonitoringModel(documentRef, elements, model) {
     elements.monitoringPanel.hidden = !model;
     if (!model) return;
+    renderHumanMonitoringView(documentRef, elements, model);
     const sourceId = model.bundle.bundleId || model.bundle.feedId;
     const sourceLabel = model.isLive
       ? "loopback live feed; observational only"
@@ -952,9 +1291,23 @@
       healthBody: documentRef.getElementById("health-body"),
       timelineBody: documentRef.getElementById("timeline-body"),
       nationBody: documentRef.getElementById("nation-body"),
-      provenanceBody: documentRef.getElementById("provenance-body")
-      ,
-      liveStatus: documentRef.getElementById("live-status")
+      provenanceBody: documentRef.getElementById("provenance-body"),
+      liveStatus: documentRef.getElementById("live-status"),
+      countryName: documentRef.getElementById("country-name"),
+      gameDate: documentRef.getElementById("game-date"),
+      pauseState: documentRef.getElementById("pause-state"),
+      nationTrust: documentRef.getElementById("nation-trust"),
+      freshnessLabel: documentRef.getElementById("freshness-label"),
+      alertRegion: documentRef.getElementById("alert-region"),
+      humanAlerts: documentRef.getElementById("human-alerts"),
+      observationPanel: documentRef.getElementById("observation-panel"),
+      humanObservations: documentRef.getElementById("human-observations"),
+      economyCards: documentRef.getElementById("economy-cards"),
+      marketsCards: documentRef.getElementById("markets-cards"),
+      diplomacyCards: documentRef.getElementById("diplomacy-cards"),
+      militaryCards: documentRef.getElementById("military-cards"),
+      humanTimeline: documentRef.getElementById("human-timeline"),
+      humanHealth: documentRef.getElementById("human-health")
     };
   }
 
@@ -1115,6 +1468,7 @@
     buildModel,
     buildMonitoringModel,
     buildLiveMonitoringModel,
+    buildHumanMonitoringView,
     classifyField,
     compareStates,
     emptyModel,
