@@ -27,6 +27,8 @@
               <span id="game-date">Date unknown</span>
               <span aria-hidden="true">·</span>
               <span id="pause-state">Pause unknown</span>
+              <span aria-hidden="true">·</span>
+              <span id="game-speed">Speed unknown</span>
               <span id="nation-trust" class="badge badge-unknown">Unverified</span>
             </div>
           </div>
@@ -39,6 +41,40 @@
         <section id="alert-region" class="alert-stack" aria-labelledby="alert-heading">
           <h2 id="alert-heading" class="visually-hidden">Data and campaign alerts</h2>
           <ul id="human-alerts"></ul>
+        </section>
+
+        <section class="stream-summary" aria-label="Agent activity and stream operations">
+          <article class="panel stream-focus">
+            <p class="eyebrow">Current objective</p>
+            <strong id="current-objective">No active objective</strong>
+            <span id="objective-detail">Waiting for a declared LLM action.</span>
+          </article>
+          <article class="panel stream-focus">
+            <p class="eyebrow">Last action</p>
+            <strong id="last-action">No action recorded</strong>
+            <span id="last-outcome">Outcome unavailable</span>
+          </article>
+          <article class="panel stream-focus checkpoint-focus">
+            <p class="eyebrow">Latest save checkpoint</p>
+            <strong id="checkpoint-name">No save observed</strong>
+            <span id="checkpoint-detail">Checkpoint metadata unavailable</span>
+          </article>
+        </section>
+
+        <section class="panel operations-strip" aria-labelledby="operations-heading">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Run quality</p>
+              <h2 id="operations-heading">Operational metrics</h2>
+            </div>
+            <span class="badge badge-unverified">Ledger-derived, not game statistics</span>
+          </div>
+          <dl class="operations-metrics">
+            <div><dt>Action latency</dt><dd id="action-latency">Unavailable</dd></div>
+            <div><dt>Navigation latency</dt><dd id="navigation-latency">Unavailable</dd></div>
+            <div><dt>Unknown outcomes</dt><dd id="unknown-outcomes">0</dd></div>
+            <div><dt>Bridge health</dt><dd id="bridge-health">Unknown</dd></div>
+          </dl>
         </section>
 
         <section id="observation-panel" class="panel observation-panel" hidden aria-labelledby="observation-heading">

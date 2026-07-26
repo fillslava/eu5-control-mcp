@@ -5,7 +5,10 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { latestSaveCheckpoint } = require("../read/latest-save");
-const { ControlLedger } = require("../control/control-ledger");
+const {
+  ControlLedger,
+  validateLedgerRecords
+} = require("../control/control-ledger");
 const {
   TYPED_RECORD_DEFINITIONS,
   TYPED_RECORD_TYPES,
@@ -236,34 +239,218 @@ function parseEu5ControlLine(line, { now = () => Date.now() } = {}) {
   return Object.freeze(record);
 }
 
-function readLogTail(logPath, maximumBytes = MAX_LOG_TAIL_BYTES) {
-  const stat = fs.lstatSync(logPath);
-  if (!stat.isFile() || stat.isSymbolicLink()) {
-    throw new Error("configured debug log is not a regular file");
+function sameFileIdentity(left, right) {
+  return (
+    left &&
+    right &&
+    left.dev === right.dev &&
+    left.ino === right.ino &&
+    left.birthtimeNs === right.birthtimeNs
+  );
+}
+
+function validFileIdentity(stat) {
+  return Boolean(
+    stat &&
+    typeof stat.dev === "bigint" &&
+    typeof stat.ino === "bigint" &&
+    (stat.dev !== 0n || stat.ino !== 0n) &&
+    typeof stat.birthtimeNs === "bigint" &&
+    stat.birthtimeNs > 0n
+  );
+}
+
+function logClockSeconds(line) {
+  const match = /^\[(\d{2}):(\d{2}):(\d{2})\]/.exec(line);
+  if (!match) return null;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  const seconds = Number(match[3]);
+  if (hours > 23 || minutes > 59 || seconds > 59) return null;
+  return hours * 3600 + minutes * 60 + seconds;
+}
+
+function timestampLogLines(lines, modifiedAtMs) {
+  const anchor = new Date(modifiedAtMs);
+  if (!Number.isFinite(anchor.getTime())) return lines;
+  let lastClockSeconds = null;
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    lastClockSeconds = logClockSeconds(lines[index].line);
+    if (lastClockSeconds !== null) break;
   }
-  const start = Math.max(0, stat.size - maximumBytes);
-  const length = stat.size - start;
-  const handle = fs.openSync(logPath, "r");
-  try {
-    const buffer = Buffer.alloc(length);
-    fs.readSync(handle, buffer, 0, length, start);
-    const text = buffer.toString("utf8");
-    const lines = [];
-    let relativeOffset = 0;
-    for (const rawLine of text.split("\n")) {
-      const bytes = Buffer.byteLength(rawLine, "utf8") + 1;
-      const line = rawLine.endsWith("\r") ? rawLine.slice(0, -1) : rawLine;
-      if (!(start > 0 && relativeOffset === 0)) {
-        lines.push({ line, byteOffset: start + relativeOffset });
-      }
-      relativeOffset += bytes;
+  if (lastClockSeconds === null) return lines;
+  const clockParts = (seconds) => ({
+    hours: Math.floor(seconds / 3600),
+    minutes: Math.floor((seconds % 3600) / 60),
+    seconds: seconds % 60
+  });
+  const makeTimestamp = (mode, dayOffset, seconds) => {
+    const clock = clockParts(seconds);
+    if (mode === "utc") {
+      return new Date(Date.UTC(
+        anchor.getUTCFullYear(),
+        anchor.getUTCMonth(),
+        anchor.getUTCDate() + dayOffset,
+        clock.hours,
+        clock.minutes,
+        clock.seconds,
+        0
+      ));
     }
+    return new Date(
+      anchor.getFullYear(),
+      anchor.getMonth(),
+      anchor.getDate() + dayOffset,
+      clock.hours,
+      clock.minutes,
+      clock.seconds,
+      0
+    );
+  };
+  const candidates = [];
+  for (const mode of ["local", "utc"]) {
+    for (const dayOffset of [-1, 0, 1]) {
+      const value = makeTimestamp(mode, dayOffset, lastClockSeconds);
+      candidates.push({
+        mode,
+        dayOffset,
+        distance: Math.abs(value.getTime() - modifiedAtMs)
+      });
+    }
+  }
+  candidates.sort((left, right) => left.distance - right.distance);
+  const selected = candidates[0];
+  let dayOffset = selected.dayOffset;
+  let nextSeconds = null;
+  const stamped = [...lines];
+  for (let index = stamped.length - 1; index >= 0; index -= 1) {
+    const seconds = logClockSeconds(stamped[index].line);
+    if (seconds === null) continue;
+    if (nextSeconds !== null && seconds > nextSeconds) dayOffset -= 1;
+    stamped[index] = {
+      ...stamped[index],
+      recordedAtUtc: makeTimestamp(
+        selected.mode,
+        dayOffset,
+        seconds
+      ).toISOString()
+    };
+    nextSeconds = seconds;
+  }
+  return stamped;
+}
+
+function readLogTail(
+  logPath,
+  maximumBytes = MAX_LOG_TAIL_BYTES,
+  { fileSystem = fs } = {}
+) {
+  if (
+    !Number.isSafeInteger(maximumBytes) ||
+    maximumBytes <= 0 ||
+    maximumBytes > MAX_LOG_TAIL_BYTES
+  ) {
+    throw new TypeError(`maximumBytes must be between 1 and ${MAX_LOG_TAIL_BYTES}`);
+  }
+  const resolved = path.resolve(logPath);
+  const pathWithoutRoot = resolved.slice(path.parse(resolved).root.length);
+  if (pathWithoutRoot.includes(":")) {
+    throw new Error("configured debug log must not use a Windows alternate data stream");
+  }
+  let handle;
+  try {
+    const pathStat = fileSystem.lstatSync(resolved, { bigint: true });
+    if (!pathStat.isFile() || pathStat.isSymbolicLink()) {
+      throw new Error("configured debug log is not a regular non-symlink file");
+    }
+    handle = fileSystem.openSync(
+      resolved,
+      fileSystem.constants.O_RDONLY | (fileSystem.constants.O_NOFOLLOW || 0)
+    );
+    const openedStat = fileSystem.fstatSync(handle, { bigint: true });
+    if (!openedStat.isFile()) {
+      throw new Error("configured debug log is not a regular file");
+    }
+    if (
+      !validFileIdentity(pathStat) ||
+      !validFileIdentity(openedStat) ||
+      !sameFileIdentity(pathStat, openedStat) ||
+      pathStat.size !== openedStat.size
+    ) {
+      throw new Error("configured debug log changed while it was being opened");
+    }
+    if (openedStat.size > BigInt(Number.MAX_SAFE_INTEGER)) {
+      throw new Error("configured debug log is too large to read safely");
+    }
+    const maximumBytesBigInt = BigInt(maximumBytes);
+    const startBigInt =
+      openedStat.size > maximumBytesBigInt
+        ? openedStat.size - maximumBytesBigInt
+        : 0n;
+    const start = Number(startBigInt);
+    const length = Number(openedStat.size - startBigInt);
+    const buffer = Buffer.alloc(length);
+    let totalBytes = 0;
+    while (totalBytes < length) {
+      const bytesRead = fileSystem.readSync(
+        handle,
+        buffer,
+        totalBytes,
+        length - totalBytes,
+        start + totalBytes
+      );
+      if (bytesRead === 0) {
+        throw new Error("configured debug log shrank while it was being read");
+      }
+      totalBytes += bytesRead;
+    }
+    const finalHandleStat = fileSystem.fstatSync(handle, { bigint: true });
+    if (
+      !sameFileIdentity(openedStat, finalHandleStat) ||
+      finalHandleStat.size !== openedStat.size
+    ) {
+      throw new Error("configured debug log changed while it was being read");
+    }
+    const finalPathStat = fileSystem.lstatSync(resolved, { bigint: true });
+    if (
+      finalPathStat.isSymbolicLink() ||
+      !finalPathStat.isFile() ||
+      !sameFileIdentity(finalHandleStat, finalPathStat) ||
+      finalPathStat.size !== finalHandleStat.size
+    ) {
+      throw new Error("configured debug log path changed while it was being read");
+    }
+    const lines = [];
+    let lineStart = 0;
+    for (let index = 0; index <= buffer.length; index += 1) {
+      if (index !== buffer.length && buffer[index] !== 0x0a) continue;
+      let lineEnd = index;
+      if (lineEnd > lineStart && buffer[lineEnd - 1] === 0x0d) lineEnd -= 1;
+      if (!(start > 0 && lineStart === 0)) {
+        lines.push({
+          line: buffer.subarray(lineStart, lineEnd).toString("utf8"),
+          byteOffset: start + lineStart
+        });
+      }
+      lineStart = index + 1;
+    }
+    const sourceIdentity = crypto
+      .createHash("sha256")
+      .update([
+        openedStat.dev.toString(),
+        openedStat.ino.toString(),
+        openedStat.birthtimeNs.toString()
+      ].join("\u001f"))
+      .digest("hex")
+      .slice(0, 24);
+    const modifiedAtMs = Number(openedStat.mtimeNs / 1_000_000n);
     return {
-      modifiedAtUtc: stat.mtime.toISOString(),
-      lines
+      modifiedAtUtc: new Date(modifiedAtMs).toISOString(),
+      sourceIdentity,
+      lines: timestampLogLines(lines, modifiedAtMs)
     };
   } finally {
-    fs.closeSync(handle);
+    if (handle !== undefined) fileSystem.closeSync(handle);
   }
 }
 
@@ -338,15 +525,21 @@ function structuredLogRecords({
   now = () => Date.now(),
   trustedTelemetryContext
 }) {
-  if (!logPath || !fs.existsSync(logPath)) return [];
-  const tail = readLogTail(logPath);
-  const recordedAtUtc = tail.modifiedAtUtc;
+  if (!logPath) return [];
+  let tail;
+  try {
+    tail = readLogTail(logPath);
+  } catch (error) {
+    if (error && error.code === "ENOENT") return [];
+    throw error;
+  }
   const nowMs = now();
   const records = [];
   const activePartialGroups = new Map();
   for (const item of tail.lines) {
     const parsed = parseEu5ControlLine(item.line, { now });
-    if (!parsed) continue;
+    if (!parsed || !item.recordedAtUtc) continue;
+    const recordedAtUtc = item.recordedAtUtc;
     const occurredAtUtc = parsed.occurredAtUtc || recordedAtUtc;
     const partialTelemetry = validatePartialTelemetryRecord(parsed);
     const typed = TYPED_RECORD_TYPES.has(parsed.recordType) &&
@@ -368,6 +561,7 @@ function structuredLogRecords({
     let correlationId;
     if (partialTelemetry && partialTelemetry.kind === "partial_export") {
       correlationId = `eu5-export-${hashId(
+        tail.sourceIdentity,
         item.byteOffset,
         parsed.procedure,
         parsed.section,
@@ -442,8 +636,13 @@ function structuredLogRecords({
       trustedTypedTelemetry(parsed, trustedTelemetryContext);
     const normalized = {
       recordId:
-        parsed.eventId ||
-        `eu5-log-${hashId(item.byteOffset, JSON.stringify(parsed))}`,
+        parsed.eventId
+          ? `eu5-event-${hashId(tail.sourceIdentity, parsed.eventId)}`
+          : `eu5-log-${hashId(
+          tail.sourceIdentity,
+          item.byteOffset,
+          JSON.stringify(parsed)
+        )}`,
       recordType,
       occurredAtUtc,
       recordedAtUtc,
@@ -547,91 +746,209 @@ function ledgerRecordId(event) {
 
 function mapLedgerEvents(events, { now = () => Date.now() } = {}) {
   if (!Array.isArray(events)) throw new TypeError("ledger events must be an array");
+  validateLedgerRecords(events);
   const declarations = new Map();
+  const dispatches = new Map();
+  const outcomes = new Map();
   for (const event of events) {
-    if (isPlainObject(event) && event.type === "declared" && event.declarationId) {
+    if (!isPlainObject(event)) continue;
+    if (event.type === "declared" && event.declarationId) {
       declarations.set(event.declarationId, event);
+    } else if (event.type === "dispatched" && event.dispatchId) {
+      dispatches.set(event.dispatchId, event);
+    } else if (event.type === "outcome" && event.outcomeId) {
+      outcomes.set(event.outcomeId, event);
     }
   }
+  const declarationIdFor = (event) => {
+    if (typeof event.declarationId === "string") return event.declarationId;
+    const outcome =
+      typeof event.outcomeId === "string" ? outcomes.get(event.outcomeId) : null;
+    const dispatchId =
+      typeof event.dispatchId === "string"
+        ? event.dispatchId
+        : outcome && outcome.dispatchId;
+    const dispatch =
+      typeof dispatchId === "string" ? dispatches.get(dispatchId) : null;
+    return dispatch && typeof dispatch.declarationId === "string"
+      ? dispatch.declarationId
+      : null;
+  };
   const nowMs = now();
   const records = [];
+  const lifecycleEvents = new Map();
   for (const event of events) {
     if (!isPlainObject(event) || !canonicalTimestamp(event.recordedAtUtc)) continue;
-    const declaration =
-      event.type === "declared"
-        ? event
-        : declarations.get(event.declarationId);
+    const declarationId = declarationIdFor(event);
+    if (!declarationId) continue;
+    const grouped = lifecycleEvents.get(declarationId) || [];
+    grouped.push(event);
+    lifecycleEvents.set(declarationId, grouped);
+  }
+
+  const semanticPayload = (declaration) => ({
+    actionId:
+      typeof declaration.actionId === "string"
+        ? declaration.actionId
+        : declaration.action && declaration.action.id || null,
+    actionFamily:
+      typeof declaration.actionFamily === "string"
+        ? declaration.actionFamily
+        : declaration.action && declaration.action.actionFamily || null,
+    procedure:
+      typeof declaration.procedure === "string"
+        ? declaration.procedure
+        : declaration.action && declaration.action.procedure || null,
+    capability:
+      typeof declaration.capability === "string"
+        ? declaration.capability
+        : declaration.action && declaration.action.capability || null
+  });
+
+  const terminalOutcome = (grouped) => {
+    const verified = [...grouped].reverse().find((event) => event.type === "verified");
+    if (verified) return verified;
+    return [...grouped].reverse().find((event) =>
+      event.type === "outcome" && event.state === "execution_unknown"
+    ) || null;
+  };
+
+  const terminalState = (event) => {
+    if (
+      event.state === "execution_unknown" ||
+      event.lifecycleState === "execution_unknown"
+    ) return "execution_unknown";
+    if (event.state === "expired" || event.lifecycleState === "expired") {
+      return "expired";
+    }
+    if (
+      event.state === "attested_untrusted" ||
+      event.state === "ambiguous" ||
+      event.lifecycleState === "ambiguous"
+    ) return "ambiguous";
+    return "failed";
+  };
+
+  for (const declaration of declarations.values()) {
+    if (!canonicalTimestamp(declaration.recordedAtUtc)) continue;
+    const declarationId = declaration.declarationId;
+    const grouped = lifecycleEvents.get(declarationId) || [declaration];
     const subject = {};
-    if (declaration && typeof declaration.campaign === "string") {
-      subject.campaignId = declaration.campaign;
+    const campaignId =
+      typeof declaration.campaignId === "string"
+        ? declaration.campaignId
+        : declaration.campaign;
+    if (typeof campaignId === "string") subject.campaignId = campaignId;
+    if (typeof declaration.countryId === "string") {
+      subject.countryId = declaration.countryId;
     }
-    const base = {
-      recordId: ledgerRecordId(event),
-      occurredAtUtc: event.observedAtUtc && canonicalTimestamp(event.observedAtUtc)
-        ? event.observedAtUtc
-        : event.recordedAtUtc,
-      recordedAtUtc: event.recordedAtUtc,
+    const session = typeof declaration.rehearsalId === "string"
+      ? { captureSessionId: declaration.rehearsalId }
+      : {};
+    const provenance = (event, verified = false) => ({
+      adapter: { id: "eu5-control-ledger", version: "1" },
+      verification: {
+        status: verified ? "verified" : "unverified",
+        evidence: verified
+          ? "Independent signed verification recorded in append-only control ledger."
+          : "Local append-only protocol record; external execution and game state are not independently verified."
+      },
+      freshness: freshness(event.recordedAtUtc, nowMs, LOG_FRESH_MS),
+      ...(verified && SHA256.test(event.evidenceSha256)
+        ? { rawArtifactSha256: event.evidenceSha256 }
+        : {})
+    });
+    const proposalBase = {
+      recordId: ledgerRecordId(declaration),
+      occurredAtUtc: declaration.recordedAtUtc,
+      recordedAtUtc: declaration.recordedAtUtc,
       sequence: 0,
-      ...(event.declarationId ? { correlationId: event.declarationId } : {}),
+      correlationId: declarationId,
+      ...session,
       subject,
-      provenance: {
-        adapter: { id: "eu5-control-ledger", version: "1" },
-        verification: {
-          status: "unverified",
-          evidence:
-            "Local append-only protocol record; external execution and game state are not independently verified."
-        },
-        freshness: freshness(event.recordedAtUtc, nowMs, LOG_FRESH_MS)
-      }
+      provenance: provenance(declaration)
     };
-    if (event.type === "declared") {
-      records.push({
-        ...base,
-        recordType: "llm_action_proposed",
-        payload: {
-          lifecycleState: "declared",
-          actionId: event.action && event.action.id || null,
-          risk: event.action && event.action.risk || null,
-          expectedVisibleResult:
-            sanitizeFreeText(event.action && event.action.expectedVisibleResult)
-        }
-      });
-    } else if (event.type === "authorized") {
-      records.push({
-        ...base,
-        recordType: "llm_action_outcome",
-        payload: { lifecycleState: "authorized", uiInputExecuted: false }
-      });
-    } else if (event.type === "dispatched") {
-      records.push({
-        ...base,
-        recordType: "llm_action_outcome",
-        payload: {
-          lifecycleState: "dispatch_prepared",
-          uiInputExecuted: event.uiInputExecuted === true
-        }
-      });
-    } else if (event.type === "outcome") {
-      records.push({
-        ...base,
-        recordType: "llm_action_outcome",
-        payload: {
-          lifecycleState: "outcome_recorded",
-          actualVisibleResult:
-            sanitizeFreeText(event.actualVisibleResult)
-        }
-      });
-    } else if (event.type === "verified") {
-      records.push({
-        ...base,
-        recordType: "llm_action_outcome",
-        payload: {
-          lifecycleState:
-            typeof event.state === "string" ? event.state : "unknown",
-          verified: event.verified === true
-        }
-      });
-    }
+    const semantics = semanticPayload(declaration);
+    records.push({
+      ...proposalBase,
+      recordType: "llm_action_proposed",
+      payload: {
+        lifecycleState: "declared",
+        ...semantics,
+        risk: declaration.action && declaration.action.risk || null,
+        expectedVisibleResult:
+          sanitizeFreeText(declaration.action && declaration.action.expectedVisibleResult)
+      }
+    });
+
+    const terminal = terminalOutcome(grouped);
+    if (!terminal) continue;
+    const terminalSemantics = semanticPayload(terminal);
+    const terminalHasSemantics =
+      typeof terminal.actionId === "string" &&
+      typeof terminal.actionFamily === "string" &&
+      typeof terminal.procedure === "string" &&
+      (typeof terminal.capability === "string" || terminal.capability === null);
+    const terminalSemanticsMatch =
+      terminalHasSemantics &&
+      terminalSemantics.actionId === semantics.actionId &&
+      terminalSemantics.actionFamily === semantics.actionFamily &&
+      terminalSemantics.procedure === semantics.procedure &&
+      terminalSemantics.capability === semantics.capability;
+    const terminalSessionMatches =
+      (typeof declaration.rehearsalId !== "string" ||
+        terminal.rehearsalId === declaration.rehearsalId) &&
+      (typeof campaignId !== "string" ||
+        (terminal.campaignId || terminal.campaign) === campaignId) &&
+      (typeof declaration.countryId !== "string" ||
+        terminal.countryId === declaration.countryId);
+    const signedVerified =
+      terminal.type === "verified" &&
+      terminal.state === "verified" &&
+      terminal.verified === true &&
+      terminalSemanticsMatch &&
+      terminalSessionMatches &&
+      typeof terminal.verificationId === "string" &&
+      terminal.verificationId.trim() !== "" &&
+      SHA256.test(terminal.evidenceSha256 || "");
+    const outcome = signedVerified ? "success" : terminalState(terminal);
+    const outcomeSemantics = terminalHasSemantics
+      ? terminalSemantics
+      : semantics;
+    const occurredAtUtc =
+      terminal.observedAtUtc && canonicalTimestamp(terminal.observedAtUtc)
+        ? terminal.observedAtUtc
+        : terminal.recordedAtUtc;
+    const latencyMs =
+      Date.parse(terminal.recordedAtUtc) - Date.parse(declaration.recordedAtUtc);
+    records.push({
+      recordId: ledgerRecordId(terminal),
+      recordType: "llm_action_outcome",
+      occurredAtUtc,
+      recordedAtUtc: terminal.recordedAtUtc,
+      sequence: 0,
+      correlationId: declarationId,
+      ...session,
+      subject,
+      provenance: provenance(terminal, signedVerified),
+      payload: {
+        lifecycleState:
+          typeof terminal.lifecycleState === "string"
+            ? terminal.lifecycleState
+            : outcome,
+        ...outcomeSemantics,
+        outcome,
+        latencyMs: Number.isFinite(latencyMs) && latencyMs >= 0
+          ? latencyMs
+          : null,
+        ...(terminal.actualVisibleResult !== undefined
+          ? {
+              actualVisibleResult:
+                sanitizeFreeText(terminal.actualVisibleResult)
+            }
+          : {})
+      }
+    });
   }
   return records;
 }
@@ -713,12 +1030,31 @@ function buildLiveFeed({
       (record.payload.event === "partial_export" ||
         record.payload.event === "partial_fact")
     ).length;
+    const freshRecordCount = logRecords.filter((record) =>
+      record.provenance.freshness === "fresh"
+    ).length;
+    const freshPartialTelemetryRecordCount = logRecords.filter((record) =>
+      record.provenance.freshness === "fresh" &&
+      record.recordType === "game_event" &&
+      record.payload &&
+      (record.payload.event === "partial_export" ||
+        record.payload.event === "partial_fact")
+    ).length;
+    const status = verifiedTypedRecordCount > 0
+      ? "available"
+      : freshPartialTelemetryRecordCount > 0
+        ? "partial-observation-only"
+        : logRecords.length > 0
+          ? "stale-or-unverified-only"
+          : "awaiting-recognized-record";
     sourceHealth.push({
       component: "structured-debug-log",
-      status: logRecords.length ? "available" : "awaiting-recognized-record",
+      status,
       recognizedRecordCount: logRecords.length,
+      freshRecordCount,
       verifiedTypedRecordCount,
-      partialTelemetryRecordCount
+      partialTelemetryRecordCount,
+      freshPartialTelemetryRecordCount
     });
   } catch {
     sourceHealth.push({

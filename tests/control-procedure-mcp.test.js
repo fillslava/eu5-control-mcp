@@ -64,11 +64,18 @@ test("MCP exposes a finite policy catalogue without an input executor", async (t
   assert.equal(result.arbitraryInputAccepted, false);
   assert.equal(result.outcomePolicy.missingAcknowledgement, "execution_unknown");
   assert.equal(result.outcomePolicy.automaticRetryAllowed, false);
+  assert.equal(result.observationPolicy.maxAgeMs, 45_000);
+  assert.equal(result.observationPolicy.configuredBy, "EU5_OBSERVATION_MAX_AGE_MS");
   assert.deepEqual(
     result.procedures.map(({ name }) => name),
     [
       "focus_game",
       "pause",
+      "pause_now",
+      "confirm_paused",
+      "dismiss_information_modal",
+      "abort_to_pause",
+      "recover_known_screen",
       "open_control_panel",
       "refresh_state",
       "open_capital",
@@ -112,7 +119,7 @@ test("MCP rejects unproven routes from a fresh observation without dispatch meta
     arguments: {
       name: "economy",
       observation: freshObservation({
-        capturedAtUtc: new Date(Date.now() - 10_000).toISOString()
+        capturedAtUtc: new Date(Date.now() - 46_000).toISOString()
       })
     }
   }));

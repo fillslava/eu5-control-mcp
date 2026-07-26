@@ -4,7 +4,10 @@ This is a dependency-free, local-only dashboard for monitoring recognized EU5
 observations and LLM action records. When served by the loopback monitor, the
 default view polls the local feed and presents a human-readable campaign header,
 economy/market/diplomacy/military cards, alerts, component health, and an action
-timeline. It never controls the game or uploads data.
+timeline. The stream summary also shows the current objective, last action and
+outcome, ledger-derived action/navigation latency, unknown outcomes, bridge
+health, and the newest verified save-checkpoint metadata. It never controls the
+game or uploads data.
 
 Raw records, provenance tables, and file imports are collapsed under
 **Technical details** and **Offline import and before/after comparison**. A
@@ -15,9 +18,14 @@ statistic appears in the main cards only when it came from a fresh, verified
 fixture, and unverified values remain visibly unknown rather than being inferred
 from save metadata or action acknowledgements.
 
-The server may also supply `currentObservations` from the fixed v0.3.0 partial
-bridge. These categorical or explicitly unavailable facts appear only in a
-separate **Unverified observations** panel. They never populate the verified
+Game speed remains explicitly unknown until a reviewed bridge export supplies
+it. Save checkpoints prove only that a file appeared or changed; they never
+populate country, economy, market, diplomacy, or military statistics.
+
+The server may also supply `currentObservations` from the fixed v0.4.0 partial
+bridge. Its categorical facts, display-only country/date/economy/military
+strings, and explicitly unavailable facts appear only in a separate
+**Unverified observations** panel. They never populate the verified
 country header or statistic cards.
 
 The older before/after comparison remains available for explicitly supplied JSON

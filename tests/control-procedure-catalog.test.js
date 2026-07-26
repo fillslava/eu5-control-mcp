@@ -53,6 +53,11 @@ test("catalog is versioned, finite, named, and exposes no generic execution prim
   assert.deepEqual(Object.keys(PROCEDURES), [
     "focus_game",
     "pause",
+    "pause_now",
+    "confirm_paused",
+    "dismiss_information_modal",
+    "abort_to_pause",
+    "recover_known_screen",
     "open_control_panel",
     "refresh_state",
     "open_capital",
@@ -64,7 +69,7 @@ test("catalog is versioned, finite, named, and exposes no generic execution prim
     "back",
     "close"
   ]);
-  assert.equal(listProcedures().length, 12);
+  assert.equal(listProcedures().length, 17);
   assert.throws(() => getProcedure("execute_effect"), /Unknown controlled EU5 procedure/);
 });
 
@@ -73,7 +78,7 @@ test("every candidate has fixed policy and evidence but no unproven dispatch met
     assert.equal(item.catalogId, CATALOG_ID);
     assert.match(item.name, /^[a-z_]+$/);
     assert.ok(["read_only", "reversible"].includes(item.riskClass));
-    assert.equal(item.authorization, "one_use");
+    assert.ok(["one_use", "not_required"].includes(item.authorization));
     assert.equal(item.idempotency.keyRequired, true);
     assert.equal(item.idempotency.automaticRetry, false);
     assert.equal(item.retryPolicy.mode, "never_automatic");
@@ -81,10 +86,15 @@ test("every candidate has fixed policy and evidence but no unproven dispatch met
     assert.ok(item.preconditions.length >= 5);
     assert.ok(item.targetSchema.type);
     assert.ok(item.expectedEvidence.kind);
-    assert.equal(item.operationalStatus, "candidate_requires_live_proof");
     assert.equal(item.dispatch, null);
-    assert.equal(typeof item.nonOperationalReason, "string");
-    assert.ok(item.nonOperationalReason.length > 20);
+    if (item.executionMode === "observation_only") {
+      assert.equal(item.operationalStatus, "operational_observation_only");
+      assert.equal(item.authorization, "not_required");
+    } else {
+      assert.equal(item.operationalStatus, "candidate_requires_live_proof");
+      assert.equal(typeof item.nonOperationalReason, "string");
+      assert.ok(item.nonOperationalReason.length > 20);
+    }
   }
 });
 
@@ -120,7 +130,7 @@ test("focus_game may inspect an unfocused EU5 window but has no dispatch route",
 
 test("stale and future observations are rejected", () => {
   for (const capturedAtUtc of [
-    new Date(NOW - 2_001).toISOString(),
+    new Date(NOW - 45_001).toISOString(),
     new Date(NOW + 1).toISOString()
   ]) {
     const result = evaluateProcedureGate(
@@ -205,8 +215,8 @@ test("a human-proven visible button remains non-dispatchable without Computer Us
 
 test("pause is a disabled candidate and never blindly toggles", () => {
   const alreadyPaused = evaluateProcedureGate("pause", observation(), { now: NOW });
-  assert.equal(alreadyPaused.allowed, false);
-  assert.equal(alreadyPaused.code, REJECTION.NON_OPERATIONAL_ROUTE);
+  assert.equal(alreadyPaused.allowed, true);
+  assert.equal(alreadyPaused.code, "already_satisfied");
   assert.equal(alreadyPaused.dispatch, null);
 
   const running = evaluateProcedureGate(
@@ -225,6 +235,101 @@ test("pause is a disabled candidate and never blindly toggles", () => {
   );
   assert.equal(unknown.allowed, false);
   assert.equal(unknown.code, REJECTION.INVALID_OBSERVATION);
+});
+
+test("named pause and recovery procedures fail closed or prove already-satisfied state", () => {
+  for (const name of ["pause_now", "abort_to_pause"]) {
+    const satisfied = evaluateProcedureGate(name, observation(), { now: NOW });
+    assert.equal(satisfied.allowed, true);
+    assert.equal(satisfied.code, "already_satisfied");
+    assert.equal(satisfied.dispatch, null);
+
+    const running = evaluateProcedureGate(
+      name,
+      observation({ game: { paused: false } }),
+      { now: NOW }
+    );
+    assert.equal(running.allowed, false);
+    assert.equal(running.code, REJECTION.NON_OPERATIONAL_ROUTE);
+  }
+
+  const confirmed = evaluateProcedureGate("confirm_paused", observation(), { now: NOW });
+  assert.equal(confirmed.allowed, true);
+  assert.equal(confirmed.code, "already_satisfied");
+  assert.equal(confirmed.observationAgeMs, 500);
+
+  const confirmedBehindModal = evaluateProcedureGate(
+    "confirm_paused",
+    observation({ game: { modalPresent: true, modalKind: "decision" } }),
+    { now: NOW }
+  );
+  assert.equal(confirmedBehindModal.allowed, true);
+  assert.equal(confirmedBehindModal.code, "already_satisfied");
+
+  const notPaused = evaluateProcedureGate(
+    "confirm_paused",
+    observation({ game: { paused: false } }),
+    { now: NOW }
+  );
+  assert.equal(notPaused.allowed, false);
+  assert.equal(notPaused.code, REJECTION.POSTCONDITION_NOT_MET);
+
+  const mapRecovery = evaluateProcedureGate("recover_known_screen", observation(), { now: NOW });
+  assert.equal(mapRecovery.allowed, true);
+  assert.equal(mapRecovery.code, "already_satisfied");
+
+  const unknownScreen = evaluateProcedureGate(
+    "recover_known_screen",
+    observation({ screenId: "economy" }),
+    { now: NOW }
+  );
+  assert.equal(unknownScreen.allowed, false);
+  assert.equal(unknownScreen.code, REJECTION.UNEXPECTED_SCREEN);
+});
+
+test("information modal dismissal admits only a classified information modal", () => {
+  const missingModal = evaluateProcedureGate(
+    "dismiss_information_modal",
+    observation(),
+    { now: NOW }
+  );
+  assert.equal(missingModal.code, REJECTION.POSTCONDITION_NOT_MET);
+
+  const decision = evaluateProcedureGate(
+    "dismiss_information_modal",
+    observation({ game: { modalPresent: true, modalKind: "decision" } }),
+    { now: NOW }
+  );
+  assert.equal(decision.code, REJECTION.POSTCONDITION_NOT_MET);
+
+  const information = evaluateProcedureGate(
+    "dismiss_information_modal",
+    observation({
+      game: { modalPresent: true, modalKind: "information" },
+      visibleControls: [{ role: "button", label: "OK", visible: true, enabled: true }]
+    }),
+    { now: NOW }
+  );
+  assert.equal(information.code, REJECTION.NON_OPERATIONAL_ROUTE);
+  assert.equal(information.dispatch, null);
+});
+
+test("observation-only outcomes remain unverified without an independent artifact", () => {
+  const attested = classifyProcedureOutcome("confirm_paused", {
+    acknowledged: true,
+    evidenceConclusive: true,
+    evidence: { kind: "game_state", paused: true }
+  });
+  assert.equal(attested.state, "attested_untrusted");
+  assert.equal(attested.verified, false);
+  assert.equal(attested.requiresIndependentSignedVerification, true);
+
+  const unknown = classifyProcedureOutcome("confirm_paused", {
+    acknowledged: false,
+    evidenceConclusive: false
+  });
+  assert.equal(unknown.state, "execution_unknown");
+  assert.equal(unknown.automaticRetryAllowed, false);
 });
 
 test("outcomes cannot be recorded as verified for non-operational candidates", () => {

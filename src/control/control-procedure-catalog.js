@@ -1,7 +1,11 @@
 "use strict";
 
+const {
+  DEFAULT_OBSERVATION_MAX_AGE_MS
+} = require("./observation-policy");
+
 const CATALOG_ID = "eu5.control-procedure-catalog/v1";
-const MAX_OBSERVATION_AGE_MS = 2_000;
+const MAX_OBSERVATION_AGE_MS = DEFAULT_OBSERVATION_MAX_AGE_MS;
 const EU5_PROCESS_NAME = "eu5.exe";
 const EU5_WINDOW_TITLE = "Europa Universalis V";
 
@@ -67,13 +71,91 @@ const PROCEDURES = Object.freeze({
 
   pause: procedure({
     name: "pause",
-    description: "Move the game to the paused desired state; never toggle from a stale observation.",
+    description: "Compatibility alias for pause_now.",
     riskClass: "reversible",
     allowedInitialScreens: ["*"],
     targetSchema: { type: "desired_game_state", paused: true },
     expectedEvidence: { kind: "game_state", paused: true },
     nonOperationalReason:
       "Programmatic keyboard delivery to EU5 is documented as non-operational; pause has no approved dispatch route."
+  }),
+
+  pause_now: procedure({
+    name: "pause_now",
+    description: "Move a running test campaign to the paused desired state; never toggle from an unknown state.",
+    riskClass: "reversible",
+    allowedInitialScreens: ["*"],
+    targetSchema: { type: "desired_game_state", paused: true },
+    expectedEvidence: { kind: "game_state", paused: true },
+    nonOperationalReason:
+      "No live-proven desired-state pause dispatch exists; the coordinator must execute and record this named action externally."
+  }),
+
+  confirm_paused: procedure({
+    name: "confirm_paused",
+    description: "Confirm from a fresh observation that the campaign is paused without sending input.",
+    executionMode: "observation_only",
+    allowModalObservation: true,
+    operationalStatus: "operational_observation_only",
+    authorization: "not_required",
+    allowedInitialScreens: ["*"],
+    preconditions: Object.freeze([
+      "A fresh screenshot observation is available.",
+      "Exactly one visible eu5.exe top-level window exists.",
+      "Pause state is directly observable even if a modal is visible.",
+      "No text-entry field is focused.",
+      "The disposable test-session marker and expected mod/build manifest match."
+    ]),
+    targetSchema: { type: "observed_game_state", paused: true },
+    expectedEvidence: { kind: "game_state", paused: true }
+  }),
+
+  dismiss_information_modal: procedure({
+    name: "dismiss_information_modal",
+    description: "Dismiss one verified information-only modal through its exact visible acknowledgement control.",
+    riskClass: "reversible",
+    allowedInitialScreens: ["*"],
+    allowInformationModal: true,
+    preconditions: Object.freeze([
+      "A fresh screenshot observation is available.",
+      "Exactly one visible eu5.exe top-level window exists.",
+      "The modal is classified as information-only, not a decision.",
+      "No text-entry field is focused.",
+      "The disposable test-session marker and expected mod/build manifest match."
+    ]),
+    targetSchema: {
+      type: "visible_control",
+      role: "button",
+      exactLabels: ["OK", "Close", "Закрыть"]
+    },
+    expectedEvidence: {
+      kind: "modal_state",
+      modalPresent: false
+    },
+    nonOperationalReason:
+      "No exact visible-control route for information modals has completed the required live-proof repetitions."
+  }),
+
+  abort_to_pause: procedure({
+    name: "abort_to_pause",
+    description: "Emergency recovery procedure whose only admitted target state is paused.",
+    riskClass: "reversible",
+    allowedInitialScreens: ["*"],
+    targetSchema: { type: "desired_game_state", paused: true, emergencyStop: true },
+    expectedEvidence: { kind: "game_state", paused: true },
+    nonOperationalReason:
+      "Emergency pause remains externally executed until a desired-state route passes live proof."
+  }),
+
+  recover_known_screen: procedure({
+    name: "recover_known_screen",
+    description: "Confirm recovery to the stable map screen; no generic Escape sequence or arbitrary macro is emitted.",
+    executionMode: "observation_only",
+    operationalStatus: "operational_observation_only",
+    authorization: "not_required",
+    allowedInitialScreens: ["map"],
+    targetSchema: { type: "observed_screen", screenId: "map" },
+    expectedEvidence: { kind: "screen", screenId: "map" }
   }),
 
   open_control_panel: procedure({

@@ -151,6 +151,70 @@ h2 {
   margin-bottom: 16px;
 }
 
+.stream-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.stream-focus {
+  min-width: 0;
+  padding: 18px 20px;
+}
+
+.stream-focus strong,
+.stream-focus span {
+  display: block;
+}
+
+.stream-focus strong {
+  margin-bottom: 7px;
+  overflow-wrap: anywhere;
+  font-size: 1.02rem;
+}
+
+.stream-focus span {
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.checkpoint-focus {
+  border-color: rgb(117 188 164 / 45%);
+}
+
+.operations-strip {
+  margin-bottom: 16px;
+  padding: 20px;
+}
+
+.operations-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 16px 0 0;
+}
+
+.operations-metrics div {
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel-raised);
+}
+
+.operations-metrics dt {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.operations-metrics dd {
+  margin: 5px 0 0;
+  overflow-wrap: anywhere;
+  font-weight: 750;
+}
+
 .alert-stack ul {
   display: grid;
   gap: 8px;
@@ -792,8 +856,13 @@ td {
 @media (max-width: 860px) {
   .stat-groups,
   .operations-grid,
-  .observation-list {
+  .observation-list,
+  .stream-summary {
     grid-template-columns: 1fr;
+  }
+
+  .operations-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .input-grid {
@@ -828,6 +897,10 @@ td {
   }
 
   .stat-card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .operations-metrics {
     grid-template-columns: 1fr;
   }
 

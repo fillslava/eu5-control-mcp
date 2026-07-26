@@ -7,8 +7,11 @@
   "scripts": {
     "start": "node src/server.js",
     "dashboard:live": "node src/monitoring/dashboard-server.js",
+    "stream:collect": "node src/stream/collect-rehearsal.js",
+    "stream:verify": "node src/stream/verify-rehearsal.js",
+    "test:stream": "node --test tests/stream-*.test.js",
     "test": "node --test",
-    "check": "node --check src/server.js && node --check src/read/save-inventory.js && node --check src/read/debug-export-inventory.js && node --check src/read/market-export.js && node --check src/control/action-gate.js && node --check src/control/click-navigation-procedures.js && node --check src/control/control-procedure-catalog.js && node --check src/control/control-procedure-gate.js && node --check src/control/market-export-contract.js && node --check src/control/control-ledger.js && node --check src/control/control-protocol.js && node --check src/monitoring/live-feed.js && node --check src/monitoring/dashboard-server.js && node --check dashboard/app.js && node --check scripts/approve-euv-action.js"
+    "check": "node --check src/server.js && node --check src/read/save-inventory.js && node --check src/read/debug-export-inventory.js && node --check src/read/market-export.js && node --check src/control/action-gate.js && node --check src/control/click-navigation-procedures.js && node --check src/control/control-procedure-catalog.js && node --check src/control/control-procedure-gate.js && node --check src/control/market-export-contract.js && node --check src/control/control-ledger.js && node --check src/control/control-protocol.js && node --check src/monitoring/live-feed.js && node --check src/monitoring/dashboard-server.js && node --check src/stream/rehearsal-acceptance.js && node --check src/stream/rehearsal-collector.js && node --check src/stream/collect-rehearsal.js && node --check src/stream/verify-rehearsal.js && node --check dashboard/app.js && node --check scripts/approve-euv-action.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.29.0",

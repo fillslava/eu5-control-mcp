@@ -1,11 +1,11 @@
 "use strict";
 
 const {
-  MAX_OBSERVATION_AGE_MS,
   EU5_PROCESS_NAME,
   EU5_WINDOW_TITLE,
   getProcedure
 } = require("./control-procedure-catalog");
+const { resolveObservationMaxAgeMs } = require("./observation-policy");
 
 const REJECTION = Object.freeze({
   INVALID_OBSERVATION: "invalid_observation",
@@ -17,6 +17,7 @@ const REJECTION = Object.freeze({
   TEST_SESSION_MISMATCH: "test_session_mismatch",
   UNEXPECTED_SCREEN: "unexpected_screen",
   TARGET_NOT_VISIBLE: "target_not_visible",
+  POSTCONDITION_NOT_MET: "postcondition_not_met",
   NON_OPERATIONAL_ROUTE: "non_operational_route"
 });
 
@@ -43,14 +44,19 @@ function validateObservationShape(observation) {
   return null;
 }
 
-function evaluateProcedureGate(name, observation, { now = Date.now() } = {}) {
+function evaluateProcedureGate(
+  name,
+  observation,
+  { now = Date.now(), maxObservationAgeMs } = {}
+) {
   const selected = getProcedure(name);
   const shapeError = validateObservationShape(observation);
   if (shapeError) return reject(REJECTION.INVALID_OBSERVATION, shapeError);
 
   const capturedAtMs = Date.parse(observation.capturedAtUtc);
   const ageMs = now - capturedAtMs;
-  if (ageMs < 0 || ageMs > MAX_OBSERVATION_AGE_MS) {
+  const allowedAgeMs = resolveObservationMaxAgeMs({ maxAgeMs: maxObservationAgeMs });
+  if (ageMs < 0 || ageMs > allowedAgeMs) {
     return reject(REJECTION.STALE_OBSERVATION, "The UI observation is not within the allowed freshness window.");
   }
 
@@ -69,7 +75,20 @@ function evaluateProcedureGate(name, observation, { now = Date.now() } = {}) {
     return reject(REJECTION.WRONG_FOCUS, "EU5 must be the confirmed foreground window.");
   }
 
-  if (observation.game.modalPresent !== false) {
+  if (selected.allowInformationModal === true) {
+    if (
+      observation.game.modalPresent !== true ||
+      observation.game.modalKind !== "information"
+    ) {
+      return reject(
+        REJECTION.POSTCONDITION_NOT_MET,
+        "The dismiss procedure requires a verified information-only modal."
+      );
+    }
+  } else if (
+    selected.allowModalObservation !== true &&
+    observation.game.modalPresent !== false
+  ) {
     return reject(REJECTION.MODAL_PRESENT, "A modal dialog blocks controlled execution.");
   }
 
@@ -95,8 +114,46 @@ function evaluateProcedureGate(name, observation, { now = Date.now() } = {}) {
     );
   }
 
-  if (name === "pause" && typeof observation.game.paused !== "boolean") {
+  if (
+    ["pause", "pause_now", "confirm_paused", "abort_to_pause"].includes(name) &&
+    typeof observation.game.paused !== "boolean"
+  ) {
     return reject(REJECTION.INVALID_OBSERVATION, "Pause state must be a known boolean.");
+  }
+
+  if (name === "confirm_paused" && observation.game.paused !== true) {
+    return reject(REJECTION.POSTCONDITION_NOT_MET, "The campaign is not paused.");
+  }
+
+  if (selected.executionMode === "observation_only") {
+    return Object.freeze({
+      allowed: true,
+      code: "already_satisfied",
+      procedure: selected,
+      observationId: observation.id,
+      observationAgeMs: ageMs,
+      maxObservationAgeMs: allowedAgeMs,
+      dispatch: null,
+      postcondition: selected.expectedEvidence,
+      automaticRetryAllowed: false
+    });
+  }
+
+  if (
+    ["pause", "pause_now", "abort_to_pause"].includes(name) &&
+    observation.game.paused === true
+  ) {
+    return Object.freeze({
+      allowed: true,
+      code: "already_satisfied",
+      procedure: selected,
+      observationId: observation.id,
+      observationAgeMs: ageMs,
+      maxObservationAgeMs: allowedAgeMs,
+      dispatch: null,
+      postcondition: selected.expectedEvidence,
+      automaticRetryAllowed: false
+    });
   }
 
   if (!selected.dispatch) {
@@ -122,18 +179,6 @@ function evaluateProcedureGate(name, observation, { now = Date.now() } = {}) {
     }
   }
 
-  if (name === "pause" && observation.game.paused === true) {
-    return Object.freeze({
-      allowed: true,
-      code: "already_satisfied",
-      procedure: selected,
-      observationId: observation.id,
-      dispatch: null,
-      postcondition: selected.expectedEvidence,
-      automaticRetryAllowed: false
-    });
-  }
-
   return Object.freeze({
     allowed: true,
     code: "ready_for_authorized_dispatch",
@@ -147,7 +192,7 @@ function evaluateProcedureGate(name, observation, { now = Date.now() } = {}) {
 
 function classifyProcedureOutcome(name, outcome) {
   const selected = getProcedure(name);
-  if (!selected.dispatch) {
+  if (!selected.dispatch && selected.executionMode !== "observation_only") {
     return Object.freeze({
       state: "rejected",
       code: REJECTION.NON_OPERATIONAL_ROUTE,
@@ -181,10 +226,11 @@ function classifyProcedureOutcome(name, outcome) {
     });
   }
   return Object.freeze({
-    state: "verified",
-    verified: true,
-    stopRequired: false,
+    state: "attested_untrusted",
+    verified: false,
+    stopRequired: true,
     automaticRetryAllowed: false,
+    requiresIndependentSignedVerification: true,
     expectedEvidence: selected.expectedEvidence
   });
 }
@@ -198,6 +244,9 @@ function matchExpectedEvidence(expected, evidence) {
     case "game_state":
       if (typeof evidence.paused !== "boolean") return null;
       return evidence.paused === expected.paused;
+    case "modal_state":
+      if (typeof evidence.modalPresent !== "boolean") return null;
+      return evidence.modalPresent === expected.modalPresent;
     case "debug_record": {
       if (!evidence.record || typeof evidence.record !== "object" || typeof evidence.fresh !== "boolean") return null;
       const fieldsMatch = ["schemaVersion", "recordType", "procedure", "status"]
@@ -232,7 +281,7 @@ function executionUnknown(reason) {
     verified: false,
     stopRequired: true,
     automaticRetryAllowed: false,
-    requiresFreshDeclarationForRetry: true,
+    requiresExplicitHumanRecovery: true,
     reason
   });
 }

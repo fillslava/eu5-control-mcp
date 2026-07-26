@@ -86,8 +86,8 @@ test("loopback server rejects a non-loopback Host header", async (t) => {
   assert.equal(status, 421);
 });
 
-test("monitoring endpoint stays available for real v0.3.0 partial headers and facts", async (t) => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "eu5-http-v030-"));
+test("monitoring endpoint stays available for real v0.4.0 partial headers and facts", async (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "eu5-http-v040-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const logPath = path.join(root, "debug.log");
   const header = {
@@ -95,7 +95,7 @@ test("monitoring endpoint stays available for real v0.3.0 partial headers and fa
     recordType: "economy_snapshot",
     procedure: "emit_economy_snapshot",
     section: "economy",
-    modVersion: "0.3.0",
+    modVersion: "0.4.0",
     status: "acknowledged",
     completeness: "partial",
     observationJoinRequired: true
@@ -108,7 +108,7 @@ test("monitoring endpoint stays available for real v0.3.0 partial headers and fa
     field: "monthlyBalanceClass",
     value: "non_negative",
     availability: "available",
-    modVersion: "0.3.0",
+    modVersion: "0.4.0",
     status: "observed"
   };
   const unavailableFact = {
@@ -121,9 +121,10 @@ test("monitoring endpoint stays available for real v0.3.0 partial headers and fa
     unit: "gold_per_month",
     availability: "unavailable",
     reason: "no_json_safe_scalar_serializer",
-    modVersion: "0.3.0",
+    modVersion: "0.4.0",
     status: "observed"
   };
+  const observedAt = new Date("2026-07-26T17:00:16.000Z");
   const wrap = (record, line) =>
     `[17:00:16][jomini_effect_impl.cpp:479]: common/scripted_guis/eu5_control_debug.txt:${line}: EU5_CONTROL ${JSON.stringify(record)}`;
   fs.writeFileSync(logPath, [
@@ -131,7 +132,8 @@ test("monitoring endpoint stays available for real v0.3.0 partial headers and fa
     wrap(availableFact, 301),
     wrap(unavailableFact, 302)
   ].join("\n"));
-  const now = () => fs.statSync(logPath).mtimeMs;
+  fs.utimesSync(logPath, observedAt, observedAt);
+  const now = () => observedAt.getTime();
   const base = await withFeedBuilderServer(t, () => buildLiveFeed({
     logPath,
     now,
@@ -155,5 +157,11 @@ test("monitoring endpoint stays available for real v0.3.0 partial headers and fa
     body.currentObservations.domains.economy.fields.monthlyBalance.availability,
     "unavailable"
   );
-  assert.doesNotMatch(JSON.stringify(body), /undefined|debug\.log|eu5-http-v030/i);
+  const bridgeHealth = body.records.find((record) =>
+    record.recordType === "health" &&
+    record.payload.component === "structured-debug-log"
+  );
+  assert.equal(bridgeHealth.payload.status, "partial-observation-only");
+  assert.equal(bridgeHealth.payload.freshPartialTelemetryRecordCount, 3);
+  assert.doesNotMatch(JSON.stringify(body), /undefined|debug\.log|eu5-http-v040/i);
 });

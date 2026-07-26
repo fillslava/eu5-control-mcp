@@ -25,6 +25,10 @@ const {
   evaluateProcedureGate,
   classifyProcedureOutcome
 } = require("./control/control-procedure-gate");
+const {
+  OBSERVATION_MAX_AGE_ENV,
+  resolveObservationMaxAgeMs
+} = require("./control/observation-policy");
 
 // This protocol only records the coordinator's lifecycle claims. It never has
 // access to a UI-input primitive, so dispatch cannot send clicks or keys.
@@ -54,6 +58,7 @@ const controlObservationSchema = z.object({
   game: z.object({
     paused: z.boolean(),
     modalPresent: z.boolean(),
+    modalKind: z.enum(["none", "information", "decision", "unknown"]).optional(),
     textEntryFocused: z.boolean()
   }).strict(),
   session: z.object({
@@ -73,6 +78,19 @@ const controlObservationSchema = z.object({
   visibleControls: z.array(observedControlSchema).max(64)
 }).strict();
 const sha256Schema = z.string().regex(/^[a-f0-9]{64}$/);
+const lifecyclePreObservationSchema = z.object({
+  schemaVersion: z.literal("eu5.pre-observation/v1"),
+  id: z.string().trim().min(1).max(128),
+  capturedAtUtc: z.string().datetime(),
+  evidenceSha256: sha256Schema,
+  rehearsalId: z.string().trim().min(1).max(128),
+  campaignId: z.string().trim().min(1).max(128),
+  countryId: z.string().trim().min(1).max(64),
+  gameBuild: z.string().trim().min(1).max(64),
+  modVersion: z.string().trim().min(1).max(64),
+  modManifestSha256: sha256Schema,
+  seedSaveSha256: sha256Schema
+}).strict();
 const evidenceReferenceSchema = z.object({
   reference: z.string().trim().min(1).max(512),
   sha256: sha256Schema
@@ -86,6 +104,10 @@ const outcomeEvidenceSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("game_state"),
     paused: z.boolean()
+  }).strict(),
+  z.object({
+    kind: z.literal("modal_state"),
+    modalPresent: z.boolean()
   }).strict(),
   z.object({
     kind: z.literal("debug_record"),
@@ -134,6 +156,15 @@ server.registerTool(
           missingAcknowledgement: "execution_unknown",
           inconclusiveEvidence: "execution_unknown",
           automaticRetryAllowed: false
+        },
+        observationPolicy: {
+          maxAgeMs: resolveObservationMaxAgeMs(),
+          configuredBy: OBSERVATION_MAX_AGE_ENV
+        },
+        actionLifecyclePolicy: {
+          sessionBound: Boolean(controlProtocol.sessionContext),
+          declarationsAccepted: Boolean(controlProtocol.sessionContext),
+          externalExecutionOnly: true
         },
         procedures: listProcedures()
       }, null, 2)
@@ -375,15 +406,54 @@ server.registerTool("eu5_declare_action", {
   title: "Declare one EU5 action for controlled execution",
   description: "Append a declared action to the local audit ledger. Idempotency keys prevent accidental duplicate declarations; this never sends UI input.",
   inputSchema: {
-    idempotencyKey: z.string().min(1), campaign: z.string().min(1), version: z.string().min(1),
-    action: z.object({ id: z.string().min(1), risk: z.enum(["read_only", "reversible", "consequential", "critical"]), expectedVisibleResult: z.string().min(1), preconditions: z.array(z.string().min(1)).min(1) })
+    idempotencyKey: z.string().min(1),
+    campaign: z.string().min(1),
+    version: z.literal("eu5.action-binding/v1"),
+    preObservation: lifecyclePreObservationSchema,
+    action: z.object({
+      id: z.string().min(1),
+      risk: z.enum(["read_only", "reversible", "consequential", "critical"]),
+      expectedVisibleResult: z.string().min(1),
+      preconditions: z.array(z.string().min(1)).min(1),
+      requiresConfirmation: z.boolean().optional(),
+      actionFamily: z.enum(["navigation", "economy", "diplomacy", "military"]),
+      procedure: procedureNameSchema,
+      capability: z.enum([
+        "economy_decision",
+        "diplomacy_decision",
+        "recruitment_inspection"
+      ]).nullable()
+    }).strict()
   }, annotations: { readOnlyHint: false, destructiveHint: false }
 }, async (input) => protocolResult(() => controlProtocol.declare(input)));
 
 server.registerTool("eu5_authorize_action", {
   title: "Authorize one declared EU5 action",
   description: "Validate a one-use externally signed approval artifact. MCP never creates approvals or exposes the signing secret.",
-  inputSchema: { declarationId: z.string().uuid(), approval: z.object({ approvalId: z.string().uuid(), declarationId: z.string().uuid(), actionDigest: z.string().regex(/^[a-f0-9]{64}$/), campaign: z.string().min(1), version: z.string().min(1), expiresAtUtc: z.string().datetime(), signature: z.string().regex(/^[a-f0-9]{64}$/) }) }, annotations: { readOnlyHint: false, destructiveHint: false }
+  inputSchema: {
+    declarationId: z.string().uuid(),
+    approval: z.object({
+      approvalId: z.string().uuid(),
+      declarationId: z.string().uuid(),
+      actionDigest: sha256Schema,
+      catalogId: z.literal(CATALOG_ID),
+      catalogEntryDigest: sha256Schema,
+      preObservationId: z.string().trim().min(1).max(128),
+      preObservationSha256: sha256Schema,
+      rehearsalId: z.string().trim().min(1).max(128),
+      countryId: z.string().trim().min(1).max(64),
+      sessionFingerprintSha256: sha256Schema,
+      gameBuild: z.string().trim().min(1).max(64),
+      modVersion: z.string().trim().min(1).max(64),
+      modManifestSha256: sha256Schema,
+      seedSaveSha256: sha256Schema,
+      campaign: z.string().min(1),
+      version: z.literal("eu5.action-binding/v1"),
+      expiresAtUtc: z.string().datetime(),
+      signature: sha256Schema
+    }).strict()
+  },
+  annotations: { readOnlyHint: false, destructiveHint: false }
 }, async (input) => protocolResult(() => controlProtocol.authorize(input)));
 
 server.registerTool("eu5_dispatch_action", {
@@ -394,15 +464,63 @@ server.registerTool("eu5_dispatch_action", {
 
 server.registerTool("eu5_record_action_outcome", {
   title: "Record a visible EU5 action outcome",
-  description: "Append the external executor's observed visible result. It cannot execute or repeat any action.",
-  inputSchema: { dispatchId: z.string().uuid(), actualVisibleResult: z.string().min(1), observedAtUtc: z.string().datetime(), evidence: z.object({ reference: z.string().min(1), sha256: z.string().regex(/^[a-f0-9]{64}$/), adapterId: z.string().min(1).optional(), adapterVersion: z.string().min(1).optional() }) }, annotations: { readOnlyHint: false, destructiveHint: false }
+  description: "Append the external executor's acknowledgement and evidence state. Missing acknowledgement or inconclusive evidence becomes execution_unknown and is never retried automatically.",
+  inputSchema: {
+    dispatchId: z.string().uuid(),
+    acknowledged: z.boolean().optional(),
+    evidenceConclusive: z.boolean().optional(),
+    actualVisibleResult: z.string().min(1).optional(),
+    observedAtUtc: z.string().datetime(),
+    evidence: z.object({
+      reference: z.string().min(1),
+      sha256: z.string().regex(/^[a-f0-9]{64}$/),
+      adapterId: z.string().min(1).optional(),
+      adapterVersion: z.string().min(1).optional()
+    }).optional()
+  },
+  annotations: { readOnlyHint: false, destructiveHint: false }
 }, async (input) => protocolResult(() => controlProtocol.outcome(input)));
 
 server.registerTool("eu5_verify_action_outcome", {
   title: "Verify a recorded EU5 action outcome",
-  description: "Close the lifecycle by recording whether the external visible observation matched expectations. A mismatch requires stopping.",
-  inputSchema: { outcomeId: z.string().uuid() }, annotations: { readOnlyHint: false, destructiveHint: false }
+  description: "Close the lifecycle. Only an independently signed verifier artifact can produce verified=true; untrusted claims remain ambiguous and stop the action family.",
+  inputSchema: {
+    outcomeId: z.string().uuid(),
+    verification: z.object({
+      verificationId: z.string().uuid(),
+      outcomeId: z.string().uuid(),
+      declarationId: z.string().uuid(),
+      evidenceSha256: z.string().regex(/^[a-f0-9]{64}$/),
+      outcomeObservedAtUtc: z.string().datetime(),
+      outcomeRecordHash: z.string().regex(/^[a-f0-9]{64}$/),
+      result: z.literal("verified"),
+      verifiedAtUtc: z.string().datetime(),
+      signature: z.string().regex(/^[a-f0-9]{64}$/)
+    }).strict().optional()
+  },
+  annotations: { readOnlyHint: false, destructiveHint: false }
 }, async (input) => protocolResult(() => controlProtocol.verify(input)));
+
+server.registerTool("eu5_recover_action_family", {
+  title: "Recover one frozen EU5 action family",
+  description: "Apply one fresh externally signed human recovery artifact to the exact execution_unknown, ambiguous, or failed outcome that froze the family. This never executes game input.",
+  inputSchema: {
+    actionFamily: z.enum(["navigation", "economy", "diplomacy", "military"]),
+    recovery: z.object({
+      schemaVersion: z.literal("eu5.action-family-recovery/v1"),
+      recoveryId: z.string().uuid(),
+      rehearsalId: z.string().trim().min(1).max(128),
+      campaignId: z.string().trim().min(1).max(128),
+      countryId: z.string().trim().min(1).max(64),
+      actionFamily: z.enum(["navigation", "economy", "diplomacy", "military"]),
+      blockedOutcomeId: z.string().uuid(),
+      reason: z.string().trim().min(1).max(512),
+      approvedAtUtc: z.string().datetime(),
+      signature: sha256Schema
+    }).strict()
+  },
+  annotations: { readOnlyHint: false, destructiveHint: false }
+}, async (input) => protocolResult(() => controlProtocol.recoverFamily(input)));
 
 async function main() {
   await server.connect(new StdioServerTransport());

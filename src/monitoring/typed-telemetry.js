@@ -110,7 +110,7 @@ const RELATION_VALUES = new Set([
 ]);
 const MAX_TYPED_AGE_MS = 5 * 60 * 1000;
 const MAX_FUTURE_SKEW_MS = 30 * 1000;
-const REVIEWED_TELEMETRY_MOD_VERSION = "0.3.0";
+const REVIEWED_TELEMETRY_MOD_VERSION = "0.4.0";
 const PARTIAL_EXPORTS = Object.freeze({
   nation: Object.freeze({
     recordType: "player_summary",
@@ -137,6 +137,8 @@ const PARTIAL_FACTS = Object.freeze({
   nation: Object.freeze({
     atWar: Object.freeze({ availability: "available", type: "boolean" }),
     isSubject: Object.freeze({ availability: "available", type: "boolean" }),
+    countryTag: Object.freeze({ availability: "available", type: "string" }),
+    gameDateDisplay: Object.freeze({ availability: "available", type: "string" }),
     countryName: Object.freeze({
       availability: "unavailable",
       reason: "no_json_safe_scalar_serializer"
@@ -147,6 +149,22 @@ const PARTIAL_FACTS = Object.freeze({
     })
   }),
   economy: Object.freeze({
+    estimatedMonthlyIncomeDisplay: Object.freeze({
+      availability: "available",
+      type: "string"
+    }),
+    estimatedTradeTaxIncomeDisplay: Object.freeze({
+      availability: "available",
+      type: "string"
+    }),
+    treasuryDisplay: Object.freeze({
+      availability: "available",
+      type: "string"
+    }),
+    monthlyBalanceDisplay: Object.freeze({
+      availability: "available",
+      type: "string"
+    }),
     monthlyBalanceClass: Object.freeze({
       availability: "available",
       values: Object.freeze(["negative", "non_negative"])
@@ -204,6 +222,9 @@ const PARTIAL_FACTS = Object.freeze({
     hasArmy: Object.freeze({ availability: "available", type: "boolean" }),
     hasNavy: Object.freeze({ availability: "available", type: "boolean" }),
     canRaiseArmyLevies: Object.freeze({ availability: "available", type: "boolean" }),
+    armySizeDisplay: Object.freeze({ availability: "available", type: "string" }),
+    navySizeDisplay: Object.freeze({ availability: "available", type: "string" }),
+    manpowerDisplay: Object.freeze({ availability: "available", type: "string" }),
     manpower: Object.freeze({
       availability: "unavailable",
       unit: "people",
@@ -464,7 +485,10 @@ function validateTypedPayload(recordType, payload, { nowMs = Date.now() } = {}) 
 }
 
 function validatePartialTelemetryRecord(record) {
-  if (!isPlainObject(record) || record.modVersion !== "0.3.0") return null;
+  if (
+    !isPlainObject(record) ||
+    record.modVersion !== REVIEWED_TELEMETRY_MOD_VERSION
+  ) return null;
   const exportDefinition = PARTIAL_EXPORTS[record.section];
   if (!exportDefinition) return null;
   if (record.recordType !== "telemetry_fact") {
@@ -525,6 +549,10 @@ function validatePartialTelemetryRecord(record) {
       record.reason !== undefined ||
       record.unit !== undefined ||
       (factDefinition.type === "boolean" && typeof record.value !== "boolean") ||
+      (factDefinition.type === "string" &&
+        (typeof record.value !== "string" ||
+          record.value.trim() === "" ||
+          record.value.length > 256)) ||
       (factDefinition.values && !factDefinition.values.includes(record.value))
     ) {
       return null;
@@ -585,11 +613,16 @@ function latestVerifiedState(records) {
   const anchor = candidates[0];
   const campaignId = anchor.subject.campaignId;
   const countryTag = anchor.subject.countryTag;
+  const gameDate = anchor.payload.gameDate;
+  const paused = anchor.payload.paused;
   const domains = {};
   for (const record of candidates) {
     if (
       record.subject.campaignId !== campaignId ||
       record.subject.countryTag !== countryTag ||
+      record.subject.countryName !== anchor.subject.countryName ||
+      record.payload.gameDate !== gameDate ||
+      record.payload.paused !== paused ||
       Object.hasOwn(domains, record.payload.domain)
     ) {
       continue;
@@ -618,8 +651,8 @@ function latestVerifiedState(records) {
       tag: countryTag,
       name: anchor.subject.countryName
     }),
-    gameDate: anchor.payload.gameDate,
-    paused: anchor.payload.paused,
+    gameDate,
+    paused,
     updatedAtUtc: anchor.payload.capturedAtUtc,
     domains: Object.freeze(domains),
     warnings: Object.freeze(warnings)
