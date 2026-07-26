@@ -187,3 +187,31 @@ non-verified in the UI.
 Because the page is static, browser refreshes clear all loaded data. This is
 intentional: there is no persistence, telemetry, network request, or background
 game access.
+
+## Optional monitoring bundle
+
+The separate **Monitoring bundle JSON** picker accepts only a local
+`eu5.monitoring-bundle/v1` document with `sourceMode: "offline-import"`. It
+shows records grouped as an action ledger, health, action/event timeline, nation
+snapshots, and provenance. Loading it does not modify or promote the before/after
+comparison state.
+
+```json
+{
+  "schemaVersion": "eu5.monitoring-bundle/v1",
+  "bundleId": "local-export-id",
+  "generatedAtUtc": "2026-07-26T12:00:00.000Z",
+  "sourceMode": "offline-import",
+  "records": [],
+  "integrity": { "manifestSha256": "optional lowercase SHA-256" }
+}
+```
+
+Each record must include identifiers, canonical occurrence/recording timestamps,
+a non-negative sequence, `subject`, `payload`, and provenance (adapter,
+freshness, and verification evidence). Supported types are
+`llm_action_proposed`, `llm_action_outcome`, `nation_snapshot`, `game_event`,
+and `health`. The dashboard does not verify a supplied hash or prove a source;
+missing integrity metadata, unverified records, fixture records, stale records,
+and unknown freshness remain visible as warnings. Imports containing local paths
+or secret-bearing field names are rejected.

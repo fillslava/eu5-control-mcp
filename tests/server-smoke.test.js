@@ -17,7 +17,7 @@ test("MCP server lists and runs its read-only tools", async (t) => {
     command: process.execPath,
     args: [path.join(__dirname, "..", "src", "server.js")],
     cwd: path.join(__dirname, ".."),
-    env: { ...process.env, EU5_USER_DIRECTORY: root },
+    env: { ...process.env, EU5_USER_DIRECTORY: root, EU5_CONTROL_DATA_DIR: path.join(root, "control-data") },
     stderr: "pipe"
   });
   const client = new Client({ name: "eu5-control-mcp-test", version: "0.1.0" });
@@ -26,13 +26,18 @@ test("MCP server lists and runs its read-only tools", async (t) => {
 
   const { tools } = await client.listTools();
   assert.deepEqual(tools.map((tool) => tool.name).sort(), [
+    "eu5_authorize_action",
+    "eu5_declare_action",
+    "eu5_dispatch_action",
     "eu5_issue_navigation_command",
     "eu5_list_debug_exports",
     "eu5_list_save_checkpoints",
     "eu5_observe_checkpoint",
     "eu5_prepare_click_navigation",
     "eu5_prepare_navigation_command",
-    "eu5_preview_action"
+    "eu5_preview_action",
+    "eu5_record_action_outcome",
+    "eu5_verify_action_outcome"
   ]);
 
   const debugExports = await client.callTool({

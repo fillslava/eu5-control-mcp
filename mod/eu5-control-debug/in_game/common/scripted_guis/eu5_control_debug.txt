@@ -1,4 +1,4 @@
-﻿eu5_control_debug_diagnostic = {
+﻿eu5_control_debug_emit_ping = {
     scope = country
 
     is_shown = {
@@ -10,5 +10,38 @@
     }
 
     effect = {
+        debug_log = "EU5 Control Debug: emit_ping"
+    }
+}
+
+eu5_control_debug_emit_player_scope = {
+    scope = country
+
+    is_shown = {
+        always = yes
+    }
+
+    is_valid = {
+        always = yes
+    }
+
+    effect = {
+        debug_log = "EU5 Control Debug: emit_player_scope"
+    }
+}
+
+eu5_control_debug_emit_state_snapshot = {
+    scope = country
+
+    is_shown = {
+        always = yes
+    }
+
+    is_valid = {
+        always = yes
+    }
+
+    effect = {
+        debug_log = "EU5 Control Debug: emit_state_snapshot"
     }
 }

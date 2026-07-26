@@ -28,6 +28,7 @@ is not source verification.
 | `src/read/market-export.js` | Parses a bounded, synthetic three-column TSV contract, with 1 MiB and 10,000-row limits. | Its format is fixture-derived and unverified. It is not compatible with the locally documented command output described below. |
 | `src/control/market-export-contract.js` | Describes `export_market_capacity` as blocked by policy, ineligible for execution, and parameter-free. | It never executes the command. Neither this contract nor the parser is registered as an MCP tool in `src/server.js`. |
 | `mod/eu5-control-debug` | Provides an uninstalled, effect-free scripted-GUI scaffold. | It has no GUI attachment, performs no export, and is not a metric source. |
+| Optional monitoring-bundle picker | Renders an explicitly selected local `eu5.monitoring-bundle/v1` file as ledger, health, timeline, nation, and provenance records. | It is offline-import only, does not verify supplied integrity claims, and does not promote a before/after comparison. |
 
 The source readers and dashboard are therefore disconnected by design. There is
 currently no production adapter that can turn a verified, real EU5 artifact
@@ -103,6 +104,11 @@ The static dashboard itself:
 - does not persist imported data, so a refresh or **Clear** removes it from the
   page;
 - writes imported values with `textContent`, not as executable HTML.
+
+The optional monitoring bundle accepts only offline imports. It rejects local
+paths and secret-bearing field names, keeps unverified, fixture, stale, and
+unknown-freshness records visibly warned, and is an observation display rather
+than a control or source-verification mechanism.
 
 These properties protect the display path. They do not make an untrusted source
 accurate.

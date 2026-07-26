@@ -38,6 +38,11 @@
             <span class="file-field-help">A pair/v1 document containing before and after snapshots (1 MiB maximum)</span>
             <input id="pair-file" type="file" accept=".json,application/json">
           </label>
+          <label class="file-field">
+            <span class="file-field-title">Monitoring bundle JSON</span>
+            <span class="file-field-help">Optional offline eu5.monitoring-bundle/v1 file (1 MiB maximum)</span>
+            <input id="monitoring-file" type="file" accept=".json,application/json">
+          </label>
           <div class="or-divider" aria-hidden="true"><span>or</span></div>
           <label class="file-field">
             <span class="file-field-title">Before snapshot JSON</span>
@@ -53,6 +58,24 @@
         <p id="input-message" class="input-message">
           No snapshot data loaded. See README.md for the local data contract.
         </p>
+      </section>
+
+      <section id="monitoring-panel" class="panel detail-panel monitoring-panel" hidden aria-labelledby="monitoring-heading">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Offline monitoring import</p>
+            <h2 id="monitoring-heading">Operational record bundle</h2>
+          </div>
+        </div>
+        <p id="monitoring-summary" class="input-message"></p>
+        <div class="monitoring-warnings"><strong>Integrity and provenance warnings</strong><ul id="monitoring-warnings"></ul></div>
+        <div class="monitoring-grid">
+          <article><h3>Action ledger</h3><div class="table-wrap"><table><tbody id="ledger-body"></tbody></table></div></article>
+          <article><h3>Health</h3><div class="table-wrap"><table><tbody id="health-body"></tbody></table></div></article>
+          <article><h3>Action / event timeline</h3><div class="table-wrap"><table><tbody id="timeline-body"></tbody></table></div></article>
+          <article><h3>Nation snapshots</h3><div class="table-wrap"><table><tbody id="nation-body"></tbody></table></div></article>
+          <article><h3>Provenance</h3><div class="table-wrap"><table><tbody id="provenance-body"></tbody></table></div></article>
+        </div>
       </section>
 
       <section id="fixture-warning" class="fixture-warning" hidden>

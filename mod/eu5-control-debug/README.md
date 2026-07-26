@@ -1,20 +1,28 @@
 # EU5 Control Debug
 
-This directory is a workspace-only, debug-only mod scaffold. It is not
-installed, copied, linked, or enabled in the Europa Universalis V user mod
-directory.
+This is a workspace-only, debug-only mod scaffold. It is not installed,
+copied, linked, or enabled in the Europa Universalis V user mod directory.
 
-The scaffold currently defines one country-scoped scripted GUI proof:
-`eu5_control_debug_diagnostic`. Its visibility and validity triggers are
-unconditional, while its effect block is deliberately empty. It cannot change
-money, armies, diplomacy, the date, AI behavior, or any other game state.
+The mod declares one static, country-scoped panel:
+`eu5_control_debug_window` in `in_game/gui/eu5_control_debug.gui`. It has
+three buttons whose only actions are fixed scripted-GUI procedures:
 
-There is no GUI layout or scripted-widget mapping in this scaffold. Therefore,
-the scripted GUI is not attached to or visible through any in-game window or
-button. The `is_shown` trigger only proves that the definition's visibility
-condition is true if a future, separately reviewed GUI integration supplies a
-country root scope.
+- `emit_ping` writes `EU5 Control Debug: emit_ping` with `debug_log`.
+- `emit_player_scope` writes `EU5 Control Debug: emit_player_scope` with
+  `debug_log`.
+- `emit_state_snapshot` writes `EU5 Control Debug: emit_state_snapshot` with
+  `debug_log`.
 
-Do not install or enable this scaffold in a campaign. Any future installation,
-GUI attachment, or state-changing diagnostic requires separate review and
-explicit authorization.
+The panel contains no text entry, arbitrary command route, console-command
+function, or state-changing effect. The scripted-GUI file uses UTF-8 with BOM,
+matching the live engine lexer requirement observed for
+`common/scripted_guis/*.txt`.
+
+If a separately reviewed debug session enables the mod, the panel can be
+created using `GUI.CreateWidget(eu5_control_debug,eu5_control_debug_window)`.
+That creation step is intentionally not automated by this repository and does
+not grant access to arbitrary console commands.
+
+Do not install or enable this scaffold in a campaign. Any installation, GUI
+attachment, or new diagnostic procedure requires separate review and explicit
+authorization.

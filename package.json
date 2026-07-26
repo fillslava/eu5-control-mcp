@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node src/server.js",
     "test": "node --test",
-    "check": "node --check src/server.js && node --check src/read/save-inventory.js && node --check src/read/debug-export-inventory.js && node --check src/read/market-export.js && node --check src/control/action-gate.js && node --check src/control/click-navigation-procedures.js && node --check src/control/market-export-contract.js"
+    "check": "node --check src/server.js && node --check src/read/save-inventory.js && node --check src/read/debug-export-inventory.js && node --check src/read/market-export.js && node --check src/control/action-gate.js && node --check src/control/click-navigation-procedures.js && node --check src/control/market-export-contract.js && node --check src/control/control-ledger.js && node --check src/control/control-protocol.js && node --check scripts/approve-euv-action.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.29.0",

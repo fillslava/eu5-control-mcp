@@ -1,0 +1,35 @@
+guiTypes = {
+    windowType = {
+        name = "eu5_control_debug_window"
+        size = { width = 420 height = 180 }
+        position = { x = 0 y = 0 }
+        moveable = yes
+
+        textBoxType = {
+            name = "title"
+            position = { x = 16 y = 14 }
+            text = "EU5 Control Debug (read-only)"
+        }
+
+        buttonType = {
+            name = "emit_ping"
+            position = { x = 16 y = 52 }
+            buttonText = "Emit ping"
+            onclick = "[ScriptedGui.Execute('eu5_control_debug_emit_ping')]"
+        }
+
+        buttonType = {
+            name = "emit_player_scope"
+            position = { x = 16 y = 88 }
+            buttonText = "Emit player scope"
+            onclick = "[ScriptedGui.Execute('eu5_control_debug_emit_player_scope')]"
+        }
+
+        buttonType = {
+            name = "emit_state_snapshot"
+            position = { x = 16 y = 124 }
+            buttonText = "Emit state snapshot"
+            onclick = "[ScriptedGui.Execute('eu5_control_debug_emit_state_snapshot')]"
+        }
+    }
+}

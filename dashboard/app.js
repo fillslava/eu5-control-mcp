@@ -3,6 +3,7 @@
 
   const SNAPSHOT_SCHEMA = "eu5.before-after-dashboard.snapshot/v1";
   const PAIR_SCHEMA = "eu5.before-after-dashboard.pair/v1";
+  const MONITORING_BUNDLE_SCHEMA = "eu5.monitoring-bundle/v1";
   const CLASSIFICATIONS = new Set([
     "verified-snapshot-pair",
     "candidate-snapshot-pair",
@@ -426,6 +427,144 @@
     };
   }
 
+  function validateMonitoringBundle(bundle) {
+    if (!isPlainObject(bundle)) {
+      throw new Error("Monitoring bundle must be an object");
+    }
+    if (bundle.schemaVersion !== MONITORING_BUNDLE_SCHEMA) {
+      throw new Error(`schemaVersion must be ${MONITORING_BUNDLE_SCHEMA}`);
+    }
+    const allowedBundleKeys = new Set([
+      "schemaVersion", "bundleId", "generatedAtUtc", "sourceMode", "records", "integrity"
+    ]);
+    for (const key of Object.keys(bundle)) {
+      if (!allowedBundleKeys.has(key)) throw new Error(`Monitoring bundle contains unsupported top-level field ${key}`);
+    }
+    // A bundle is an observational local artifact. It deliberately has no
+    // promotion path to the before/after dashboard's verified state.
+    for (const key of ["bundleId", "generatedAtUtc", "sourceMode", "records", "integrity"]) {
+      if (!(key in bundle)) {
+        throw new Error(`Monitoring bundle requires ${key}`);
+      }
+    }
+    assertNonEmptyString(bundle.bundleId, "bundleId");
+    parseCanonicalUtcTimestamp(bundle.generatedAtUtc, "generatedAtUtc");
+    if (bundle.sourceMode !== "offline-import") {
+      throw new Error("sourceMode must be offline-import");
+    }
+    if (!Array.isArray(bundle.records) || bundle.records.length > LIMITS.MAX_RENDERED_ROWS) {
+      throw new Error(`Monitoring bundle records must be an array with at most ${LIMITS.MAX_RENDERED_ROWS} entries`);
+    }
+    if (!isPlainObject(bundle.integrity)) {
+      throw new Error("Monitoring bundle integrity must be an object");
+    }
+    for (const key of Object.keys(bundle.integrity)) {
+      if (key !== "manifestSha256") throw new Error(`integrity contains unsupported field ${key}`);
+    }
+    if ("manifestSha256" in bundle.integrity) {
+      assertSha256(bundle.integrity.manifestSha256, "integrity.manifestSha256");
+    }
+    const types = new Set(["llm_action_proposed", "llm_action_outcome", "nation_snapshot", "game_event", "health"]);
+    for (const [index, record] of bundle.records.entries()) {
+      const path = `records[${index}]`;
+      if (!isPlainObject(record)) throw new Error(`${path} must be an object`);
+      const allowedRecordKeys = new Set(["recordId", "recordType", "occurredAtUtc", "recordedAtUtc", "sequence", "correlationId", "captureSessionId", "subject", "provenance", "payload"]);
+      for (const key of Object.keys(record)) {
+        if (!allowedRecordKeys.has(key)) throw new Error(`${path} contains unsupported field ${key}`);
+      }
+      for (const key of ["recordId", "recordType", "occurredAtUtc", "recordedAtUtc", "sequence", "subject", "provenance", "payload"]) {
+        if (!(key in record)) throw new Error(`${path} requires ${key}`);
+      }
+      assertNonEmptyString(record.recordId, `${path}.recordId`);
+      for (const optionalId of ["correlationId", "captureSessionId"]) {
+        if (optionalId in record) assertNonEmptyString(record[optionalId], `${path}.${optionalId}`);
+      }
+      if (!types.has(record.recordType)) throw new Error(`${path}.recordType is not supported`);
+      parseCanonicalUtcTimestamp(record.occurredAtUtc, `${path}.occurredAtUtc`);
+      parseCanonicalUtcTimestamp(record.recordedAtUtc, `${path}.recordedAtUtc`);
+      if (!Number.isSafeInteger(record.sequence) || record.sequence < 0) throw new Error(`${path}.sequence must be a non-negative integer`);
+      if (!isPlainObject(record.subject) || !isPlainObject(record.provenance) || !isPlainObject(record.payload)) {
+        throw new Error(`${path}.subject, provenance, and payload must be objects`);
+      }
+      const provenance = record.provenance;
+      if (!isPlainObject(provenance.adapter) || !isPlainObject(provenance.verification)) throw new Error(`${path}.provenance adapter and verification must be objects`);
+      assertNonEmptyString(provenance.adapter.id, `${path}.provenance.adapter.id`);
+      assertNonEmptyString(provenance.adapter.version, `${path}.provenance.adapter.version`);
+      if ("rawArtifactSha256" in provenance) assertSha256(provenance.rawArtifactSha256, `${path}.provenance.rawArtifactSha256`);
+      if (!VERIFICATION_VALUES.has(provenance.verification.status)) throw new Error(`${path}.provenance.verification.status is invalid`);
+      assertNonEmptyString(provenance.verification.evidence, `${path}.provenance.verification.evidence`);
+      if (!FRESHNESS_VALUES.has(provenance.freshness)) throw new Error(`${path}.provenance.freshness is invalid`);
+      validateStateBounds({ subject: record.subject, payload: record.payload }, path);
+      validateMonitoringSafeValue(
+        { subject: record.subject, provenance: record.provenance, payload: record.payload },
+        path
+      );
+    }
+    return bundle;
+  }
+
+  function validateMonitoringSafeValue(value, path) {
+    // Normalize separators and case so `sessionToken`, `api_key`, and
+    // `API-KEY` cannot bypass the local-import credential boundary.
+    const forbiddenKey = /token|secret|password|cookie|authorization|apikey|credential|privatekey|bearer/i;
+    const localPath = /^(?:[a-z]:[\\/]|\\\\|file:)/i;
+    const stack = [{ value, path }];
+    while (stack.length) {
+      const current = stack.pop();
+      if (typeof current.value === "string" && localPath.test(current.value)) {
+        throw new Error(`${current.path} must not contain local paths`);
+      }
+      if (Array.isArray(current.value)) {
+        current.value.forEach((item, index) => stack.push({ value: item, path: `${current.path}[${index}]` }));
+      } else if (isPlainObject(current.value)) {
+        for (const [key, item] of Object.entries(current.value)) {
+          const normalizedKey = key.replace(/[_.-]/g, "");
+          if (forbiddenKey.test(normalizedKey)) throw new Error(`${current.path}.${key} must not contain secrets`);
+          stack.push({ value: item, path: `${current.path}.${key}` });
+        }
+      }
+    }
+  }
+
+  function monitoringRows(value) {
+    if (Array.isArray(value)) {
+      return value.slice(0, LIMITS.MAX_RENDERED_ROWS).map((item, index) => ({
+        label: item && typeof item === "object" && !Array.isArray(item)
+          ? (item.label || item.id || item.eventId || item.actionId || `#${index + 1}`)
+          : `#${index + 1}`,
+        value: item
+      }));
+    }
+    return Object.keys(value || {}).sort().slice(0, LIMITS.MAX_RENDERED_ROWS).map((key) => ({
+      label: key,
+      value: value[key]
+    }));
+  }
+
+  function buildMonitoringModel(bundleInput) {
+    const bundle = validateMonitoringBundle(bundleInput);
+    const byType = (type) => bundle.records.filter((record) => record.recordType === type);
+    const warnings = [];
+    if (!bundle.integrity.manifestSha256) warnings.push("No manifest SHA-256 was supplied; integrity is not independently confirmed.");
+    if (bundle.records.some((record) => record.provenance.verification.status !== "verified")) warnings.push("Some records are unverified or fixture data; they are not real-state evidence.");
+    if (bundle.records.some((record) => record.provenance.freshness !== "fresh")) warnings.push("Some records are stale or have unknown freshness.");
+    return {
+      bundle,
+      ledger: monitoringRows(byType("llm_action_proposed").concat(byType("llm_action_outcome"))),
+      health: monitoringRows(byType("health")),
+      timeline: monitoringRows(bundle.records.filter((record) => record.recordType === "game_event" || record.recordType.startsWith("llm_action"))),
+      nations: monitoringRows(byType("nation_snapshot")),
+      provenance: monitoringRows(bundle.records.map((record) => ({
+        label: record.recordId,
+        adapter: record.provenance.adapter,
+        verification: record.provenance.verification,
+        freshness: record.provenance.freshness,
+        rawArtifactSha256: record.provenance.rawArtifactSha256 || null
+      }))),
+      warnings
+    };
+  }
+
   function buildModel(pairInput) {
     const pair = validatePair(pairInput);
     const comparison = compareStates(pair.before.state, pair.after.state);
@@ -531,6 +670,45 @@
     tableBody.appendChild(tr);
   }
 
+  function renderMonitoringRows(documentRef, tableBody, rows, emptyMessage) {
+    tableBody.replaceChildren();
+    if (!rows.length) {
+      const tr = documentRef.createElement("tr");
+      const td = documentRef.createElement("td");
+      td.colSpan = 2;
+      setText(td, emptyMessage);
+      tr.appendChild(td);
+      tableBody.appendChild(tr);
+      return;
+    }
+    for (const row of rows) {
+      const tr = documentRef.createElement("tr");
+      const label = documentRef.createElement("td");
+      const value = documentRef.createElement("td");
+      setText(label, row.label);
+      setText(value, formatValue(row.value));
+      tr.append(label, value);
+      tableBody.appendChild(tr);
+    }
+  }
+
+  function renderMonitoringModel(documentRef, elements, model) {
+    elements.monitoringPanel.hidden = !model;
+    if (!model) return;
+    setText(elements.monitoringSummary, `${model.bundle.bundleId}: ${model.bundle.records.length} local record(s); offline import only.`);
+    elements.monitoringWarnings.replaceChildren();
+    for (const warning of model.warnings) {
+      const item = documentRef.createElement("li");
+      setText(item, warning);
+      elements.monitoringWarnings.appendChild(item);
+    }
+    renderMonitoringRows(documentRef, elements.ledgerBody, model.ledger, "No action ledger records.");
+    renderMonitoringRows(documentRef, elements.healthBody, model.health, "No health records.");
+    renderMonitoringRows(documentRef, elements.timelineBody, model.timeline, "No action or game-event records.");
+    renderMonitoringRows(documentRef, elements.nationBody, model.nations, "No nation snapshots.");
+    renderMonitoringRows(documentRef, elements.provenanceBody, model.provenance, "No provenance records.");
+  }
+
   function renderModel(documentRef, elements, model, filter) {
     setText(elements.overallStatus, model.statusLabel);
     elements.overallStatus.className = `status status-${model.status}`;
@@ -615,7 +793,15 @@
       changedCount: documentRef.getElementById("changed-count"),
       unchangedCount: documentRef.getElementById("unchanged-count"),
       unknownCount: documentRef.getElementById("unknown-count"),
-      detailBody: documentRef.getElementById("detail-body")
+      detailBody: documentRef.getElementById("detail-body"),
+      monitoringPanel: documentRef.getElementById("monitoring-panel"),
+      monitoringSummary: documentRef.getElementById("monitoring-summary"),
+      monitoringWarnings: documentRef.getElementById("monitoring-warnings"),
+      ledgerBody: documentRef.getElementById("ledger-body"),
+      healthBody: documentRef.getElementById("health-body"),
+      timelineBody: documentRef.getElementById("timeline-body"),
+      nationBody: documentRef.getElementById("nation-body"),
+      provenanceBody: documentRef.getElementById("provenance-body")
     };
   }
 
@@ -624,13 +810,16 @@
     const pairInput = documentRef.getElementById("pair-file");
     const beforeInput = documentRef.getElementById("before-file");
     const afterInput = documentRef.getElementById("after-file");
+    const monitoringInput = documentRef.getElementById("monitoring-file");
     const resetButton = documentRef.getElementById("reset-button");
     const filter = documentRef.getElementById("status-filter");
     let currentModel = emptyModel();
     let individualSnapshots = { before: null, after: null };
+    let monitoringModel = null;
 
     function render() {
       renderModel(documentRef, elements, currentModel, filter.value);
+      renderMonitoringModel(documentRef, elements, monitoringModel);
     }
 
     function showError(error) {
@@ -694,6 +883,19 @@
     afterInput.addEventListener("change", () =>
       loadIndividual("after", afterInput.files && afterInput.files[0])
     );
+    monitoringInput.addEventListener("change", async () => {
+      const file = monitoringInput.files && monitoringInput.files[0];
+      if (!file) return;
+      try {
+        monitoringModel = buildMonitoringModel(await readJsonFile(file));
+        render();
+      } catch (error) {
+        monitoringModel = null;
+        render();
+        setText(elements.inputMessage, `Cannot load monitoring bundle: ${error.message}`);
+        elements.inputMessage.classList.add("input-message-error");
+      }
+    });
     filter.addEventListener("change", render);
     resetButton.addEventListener("click", () => {
       currentModel = emptyModel();
@@ -701,6 +903,8 @@
       pairInput.value = "";
       beforeInput.value = "";
       afterInput.value = "";
+      monitoringInput.value = "";
+      monitoringModel = null;
       filter.value = "all";
       render();
     });
@@ -711,8 +915,10 @@
   const api = {
     SNAPSHOT_SCHEMA,
     PAIR_SCHEMA,
+    MONITORING_BUNDLE_SCHEMA,
     LIMITS,
     buildModel,
+    buildMonitoringModel,
     classifyField,
     compareStates,
     emptyModel,
@@ -723,6 +929,7 @@
     readJsonFile,
     validateStateBounds,
     validatePair,
+    validateMonitoringBundle,
     validateSnapshot
   };
 

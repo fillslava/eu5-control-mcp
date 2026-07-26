@@ -36,11 +36,13 @@ The generated GUI data types document these functions:
 
 `ScriptedGui` also exposes `Execute`, `IsShown`, and `IsValid`.
 
-This makes a debug-only EU5 mod a viable in-game execution layer: expose a
-small fixed allowlist of diagnostic procedures through a scripted GUI, rather
-than allowing arbitrary console text. The external MCP remains responsible for
-reading saves/logs, choosing a named procedure, and requiring explicit policy
-checks before any future state-changing procedure.
+This supports a fixed diagnostic panel in a separately approved disposable
+debug session: expose only named `debug_log` procedures through a scripted GUI,
+rather than allowing arbitrary console text. The current workspace panel has
+exactly `emit_ping`, `emit_player_scope`, and `emit_state_snapshot`; none changes
+game state. The external MCP may inventory local evidence and record a proposed
+action lifecycle, but it cannot execute UI input, invoke a console command, or
+turn a debug procedure into normal-campaign control.
 
 ## Safety boundary
 
@@ -48,3 +50,7 @@ Do not use console commands that alter country control, territory, money,
 armies, warfare, diplomacy, events, AI, laws, or the date in the normal
 campaign. `-debug_mode` itself changes the checksum and disables achievement
 conditions; remove it and all mods before returning to a clean campaign.
+
+The debug panel is not installed, enabled, or attached automatically. Its
+presence is not authorization to run it, and it must never be used as an
+execution route in a normal campaign.
