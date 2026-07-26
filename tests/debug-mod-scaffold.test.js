@@ -30,24 +30,50 @@ test("scripted GUI source has the UTF-8 BOM required by the live lexer", () => {
 
 test("static debug panel exposes exactly three fixed procedure buttons", () => {
   const panel = fs.readFileSync(PANEL_PATH, "utf8");
+  assert.match(panel, /^\s*window\s*=\s*\{/);
   assert.match(panel, /name\s*=\s*"eu5_control_debug_window"/);
-  assert.match(panel, /EU5 Control Debug \(read-only\)/);
+  assert.match(panel, /EU5 Control Debug v\d+\.\d+\.\d+ \(read-only\)/);
+  assert.match(panel, /size\s*=\s*\{\s*420\s+246\s*\}/);
+  assert.match(panel, /position\s*=\s*\{\s*20\s+220\s*\}/);
+  assert.match(panel, /raw_text\s*=\s*"EU5 Control Debug/);
+  assert.match(panel, /raw_text\s*=\s*"\[GetPlayer\.GetNameWithNoTooltip\] \| \[GetDateString\]"/);
+  assert.match(panel, /visible\s*=\s*"\[IsGamePaused\]"/);
+  assert.match(panel, /visible\s*=\s*"\[Not\(IsGamePaused\)\]"/);
+  assert.doesNotMatch(panel, /\bon_start\s*=/);
+  assert.doesNotMatch(panel, /guiTypes|windowType|buttonType|textBoxType|width\s*=|height\s*=|moveable\s*=/);
   for (const procedure of PROCEDURES) {
     assert.match(panel, new RegExp("name\\s*=\\s*\\\"" + procedure + "\\\""));
-    assert.match(panel, new RegExp("ScriptedGui\\.Execute\\('eu5_control_debug_" + procedure + "'\\)"));
+    assert.match(panel, new RegExp(
+      "GetScriptedGui\\('eu5_control_debug_" + procedure +
+      "'\\)\\.Execute\\(GuiScope\\.SetRoot\\(GetPlayer\\.MakeScope\\)\\.End\\)"
+    ));
   }
   assert.doesNotMatch(panel, /textEntryType|ExecuteConsoleCommand|ExecuteConsoleCommands/i);
 });
 
-test("procedures are country-scoped and emit only their fixed debug logs", () => {
+test("procedures use the vanilla minimal shape and emit only recognized structured acknowledgements", () => {
   const script = stripBom(fs.readFileSync(SCRIPTED_GUI_PATH, "utf8")).replace(/#.*$/gm, "");
   for (const procedure of PROCEDURES) {
     const definition = new RegExp("eu5_control_debug_" + procedure + "\\s*=\\s*\\{([\\s\\S]*?)\\n\\}").exec(script);
     assert.ok(definition, "missing " + procedure + " definition");
-    assert.match(definition[1], /\bscope\s*=\s*country\b/);
-    assert.match(definition[1], /\bis_shown\s*=\s*\{\s*always\s*=\s*yes\s*\}/s);
-    assert.match(definition[1], /\bis_valid\s*=\s*\{\s*always\s*=\s*yes\s*\}/s);
-    assert.match(definition[1], new RegExp("\\beffect\\s*=\\s*\\{\\s*debug_log\\s*=\\s*\\\"EU5 Control Debug: " + procedure + "\\\"\\s*\\}", "s"));
+    assert.doesNotMatch(definition[1], /\bscope\s*=/);
+    assert.doesNotMatch(definition[1], /\bis_shown\s*=/);
+    assert.doesNotMatch(definition[1], /\bis_valid\s*=/);
+    assert.match(definition[1], /^\s*effect\s*=\s*\{/);
+    const logMatch = /\bdebug_log\s*=\s*"((?:\\"|[^"])*)"/s.exec(definition[1]);
+    assert.ok(logMatch, "missing structured debug_log for " + procedure);
+    const line = logMatch[1].replace(/\\"/g, '"');
+    assert.match(line, /^EU5_CONTROL \{/);
+    const record = JSON.parse(line.slice("EU5_CONTROL ".length));
+    assert.equal(record.schemaVersion, "eu5.control-log/v1");
+    assert.equal(record.procedure, procedure);
+    assert.equal(record.modVersion, "0.2.3");
+    assert.equal(record.status, "acknowledged");
+    assert.equal(record.observationJoinRequired, true);
+    assert.equal(Object.hasOwn(record, "countryName"), false);
+    assert.equal(Object.hasOwn(record, "gameDate"), false);
+    assert.equal(Object.hasOwn(record, "paused"), false);
+    assert.doesNotMatch(line, /\[(?:ROOT|GetDateString)/);
   }
   for (const token of [
     /\bExecuteConsoleCommands?\b/i,
@@ -56,10 +82,21 @@ test("procedures are country-scoped and emit only their fixed debug logs", () =>
   ]) assert.doesNotMatch(script, token);
 });
 
-test("scaffold remains uninstalled and documents only the fixed opener", () => {
+test("scaffold documents bounded debug installation and only the fixed opener", () => {
   const readme = fs.readFileSync(path.join(MOD_ROOT, "README.md"), "utf8");
-  assert.match(readme, /workspace-only, debug-only mod scaffold/i);
-  assert.match(readme, /not\s+installed,\s+copied,\s+linked,\s+or enabled/i);
-  assert.match(readme, /GUI\.CreateWidget\(eu5_control_debug,eu5_control_debug_window\)/);
+  assert.match(readme, /debug-only mod scaffold/i);
+  assert.match(readme, /current test workstation has a reviewed copy installed/i);
+  assert.match(readme, /never target a normal campaign playset/i);
+  assert.match(readme, /GUI\.CreateWidget gui\/eu5_control_debug\.gui eu5_control_debug_window/);
+  assert.match(readme, /Alt\+C/);
+  assert.match(readme, /EU5_CONTROL/);
+  assert.match(readme, /eu5\.control-log\/v1/);
+  assert.match(readme, /observationJoinRequired/);
+  assert.match(readme, /pdx_data_localize Data error/);
+  assert.match(readme, /does not handle the `on_start` callback/);
+  assert.match(readme, /contains only `effect = \{ \.\.\. \}`/);
+  assert.match(readme, /fully restart EU5/);
+  assert.match(readme, /Codex does not need a restart/);
+  assert.match(readme, /does not claim automatic attachment/i);
   assert.match(readme, /does\s+not\s+grant\s+access\s+to\s+arbitrary\s+console\s+commands/i);
 });

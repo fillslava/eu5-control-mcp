@@ -4,7 +4,11 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const {
   MONITORING_BUNDLE_SCHEMA,
+  LIVE_FEED_SCHEMA,
   buildMonitoringModel,
+  buildLiveMonitoringModel,
+  createLivePoller,
+  validateLiveMonitoringFeed,
   validateMonitoringBundle
 } = require("../dashboard/app.js");
 
@@ -73,6 +77,22 @@ test("monitoring bundle rejects non-offline and malformed record provenance", ()
   secret.records[0].payload.api_key = "not allowed";
   assert.throws(() => validateMonitoringBundle(secret), /must not contain secrets/);
 
+  const spacedSecret = bundle();
+  spacedSecret.records[0].payload["api key"] = "not allowed";
+  assert.throws(() => validateMonitoringBundle(spacedSecret), /must not contain secrets/);
+
+  const embeddedPath = bundle();
+  embeddedPath.records[0].payload.note = "captured at C:\\private\\save.eu5";
+  assert.throws(() => validateMonitoringBundle(embeddedPath), /must not contain local paths/);
+
+  const embeddedCredential = bundle();
+  embeddedCredential.records[0].payload.note =
+    "Authorization: Bearer local-secret-value";
+  assert.throws(
+    () => validateMonitoringBundle(embeddedCredential),
+    /credential-like text/
+  );
+
   for (const key of [
     "sessionToken",
     "accessToken",
@@ -96,4 +116,134 @@ test("monitoring bundle rejects non-offline and malformed record provenance", ()
       `${key} must be denied`
     );
   }
+});
+
+test("live feed has a distinct local-live contract and preserves offline isolation", () => {
+  const live = {
+    schemaVersion: LIVE_FEED_SCHEMA,
+    feedId: "local-feed",
+    generatedAtUtc: "2026-07-26T10:00:02.000Z",
+    sourceMode: "local-live",
+    records: [record("health", 0, "verified")],
+    integrity: {}
+  };
+  assert.equal(buildLiveMonitoringModel(live).isLive, true);
+  assert.throws(() => validateMonitoringBundle(live), /schemaVersion/);
+  assert.throws(
+    () => validateLiveMonitoringFeed(bundle()),
+    /unsupported top-level field|schemaVersion/
+  );
+});
+
+test("live poller retains last good data when a later refresh fails", async () => {
+  const timers = [];
+  const updates = [];
+  const statuses = [];
+  let calls = 0;
+  const live = {
+    schemaVersion: LIVE_FEED_SCHEMA,
+    feedId: "local-feed",
+    generatedAtUtc: "2026-07-26T10:00:02.000Z",
+    sourceMode: "local-live",
+    records: [record("health", 0, "verified")],
+    integrity: {}
+  };
+  const poller = createLivePoller({
+    fetchFn: async () => {
+      calls += 1;
+      if (calls === 1) return { ok: true, json: async () => live };
+      throw new Error("temporary disconnect");
+    },
+    onUpdate: (model) => updates.push(model),
+    onStatus: (status) => statuses.push(status),
+    setTimeoutFn: (callback) => {
+      timers.push(callback);
+      return timers.length;
+    },
+    clearTimeoutFn: () => {},
+    intervalMs: 1
+  });
+  poller.start();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(updates.length, 1);
+  assert.equal(statuses.at(-1).connected, true);
+  const scheduledPoll = timers.at(-1);
+  scheduledPoll();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(updates.length, 1);
+  assert.equal(statuses.at(-1).connected, false);
+  poller.stop();
+});
+
+test("stopped live poll cannot publish an in-flight response", async () => {
+  let resolveFetch;
+  const updates = [];
+  const statuses = [];
+  const responsePromise = new Promise((resolve) => {
+    resolveFetch = resolve;
+  });
+  const poller = createLivePoller({
+    fetchFn: () => responsePromise,
+    onUpdate: (model) => updates.push(model),
+    onStatus: (status) => statuses.push(status),
+    setTimeoutFn: () => 1,
+    clearTimeoutFn: () => {}
+  });
+  poller.start();
+  poller.stop();
+  resolveFetch({
+    ok: true,
+    json: async () => ({
+      schemaVersion: LIVE_FEED_SCHEMA,
+      feedId: "late-feed",
+      generatedAtUtc: "2026-07-26T10:00:02.000Z",
+      sourceMode: "local-live",
+      records: [record("health", 0, "verified")],
+      integrity: {}
+    })
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(updates.length, 0);
+  assert.equal(statuses.length, 0);
+});
+
+test("stop then start launches a current-generation poll while the old request is pending", async () => {
+  let resolveFirst;
+  let calls = 0;
+  const updates = [];
+  const first = new Promise((resolve) => {
+    resolveFirst = resolve;
+  });
+  const live = {
+    schemaVersion: LIVE_FEED_SCHEMA,
+    feedId: "current-feed",
+    generatedAtUtc: "2026-07-26T10:00:02.000Z",
+    sourceMode: "local-live",
+    records: [record("health", 0, "verified")],
+    integrity: {}
+  };
+  const poller = createLivePoller({
+    fetchFn: async () => {
+      calls += 1;
+      if (calls === 1) return first;
+      return { ok: true, json: async () => live };
+    },
+    onUpdate: (model) => updates.push(model.bundle.feedId),
+    intervalMs: 60_000,
+    requestTimeoutMs: 60_000
+  });
+  poller.start();
+  poller.stop();
+  poller.start();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(calls, 2);
+  assert.deepEqual(updates, ["current-feed"]);
+
+  resolveFirst({
+    ok: true,
+    json: async () => ({ ...live, feedId: "stale-feed" })
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(updates, ["current-feed"]);
+  poller.stop();
 });

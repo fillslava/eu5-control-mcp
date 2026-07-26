@@ -1,35 +1,65 @@
-guiTypes = {
-    windowType = {
-        name = "eu5_control_debug_window"
-        size = { width = 420 height = 180 }
-        position = { x = 0 y = 0 }
-        moveable = yes
+window = {
+    name = "eu5_control_debug_window"
+    parentanchor = top|left
+    size = { 420 246 }
+    position = { 20 220 }
+    widgetanchor = top|left
+    movable = yes
+    using = editor_window
+    vbox = {
+        size = { 388 218 }
+        position = { 16 12 }
+        spacing = 8
 
-        textBoxType = {
+        text_single = {
             name = "title"
-            position = { x = 16 y = 14 }
-            text = "EU5 Control Debug (read-only)"
+            size = { 388 28 }
+            align = center
+            raw_text = "EU5 Control Debug v0.2.3 (read-only)"
         }
 
-        buttonType = {
+        text_single = {
+            name = "session"
+            size = { 388 28 }
+            align = center
+            raw_text = "[GetPlayer.GetNameWithNoTooltip] | [GetDateString]"
+        }
+
+        text_single = {
+            name = "paused"
+            size = { 388 22 }
+            align = center
+            visible = "[IsGamePaused]"
+            raw_text = "Bridge ready | game paused"
+        }
+
+        text_single = {
+            name = "running"
+            size = { 388 22 }
+            align = center
+            visible = "[Not(IsGamePaused)]"
+            raw_text = "Bridge ready | game running"
+        }
+
+        button_default = {
             name = "emit_ping"
-            position = { x = 16 y = 52 }
-            buttonText = "Emit ping"
-            onclick = "[ScriptedGui.Execute('eu5_control_debug_emit_ping')]"
+            size = { 388 28 }
+            raw_text = "Emit ping"
+            onclick = "[GetScriptedGui('eu5_control_debug_emit_ping').Execute(GuiScope.SetRoot(GetPlayer.MakeScope).End)]"
         }
 
-        buttonType = {
+        button_default = {
             name = "emit_player_scope"
-            position = { x = 16 y = 88 }
-            buttonText = "Emit player scope"
-            onclick = "[ScriptedGui.Execute('eu5_control_debug_emit_player_scope')]"
+            size = { 388 28 }
+            raw_text = "Emit player scope"
+            onclick = "[GetScriptedGui('eu5_control_debug_emit_player_scope').Execute(GuiScope.SetRoot(GetPlayer.MakeScope).End)]"
         }
 
-        buttonType = {
+        button_default = {
             name = "emit_state_snapshot"
-            position = { x = 16 y = 124 }
-            buttonText = "Emit state snapshot"
-            onclick = "[ScriptedGui.Execute('eu5_control_debug_emit_state_snapshot')]"
+            size = { 388 28 }
+            raw_text = "Emit state snapshot"
+            onclick = "[GetScriptedGui('eu5_control_debug_emit_state_snapshot').Execute(GuiScope.SetRoot(GetPlayer.MakeScope).End)]"
         }
     }
 }

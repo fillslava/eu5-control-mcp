@@ -14,8 +14,8 @@
           <p class="eyebrow">Local comparison tool</p>
           <h1>EU5 before / after</h1>
           <p class="hero-copy">
-            Compare explicitly supplied state snapshots. Files remain in this browser tab and
-            are not uploaded.
+            Compare supplied snapshots and, when served locally, monitor the recognized
+            EU5 control feed. Nothing is uploaded.
           </p>
         </div>
         <div id="overall-status" class="status status-waiting" role="status" aria-live="polite">
@@ -39,8 +39,8 @@
             <input id="pair-file" type="file" accept=".json,application/json">
           </label>
           <label class="file-field">
-            <span class="file-field-title">Monitoring bundle JSON</span>
-            <span class="file-field-help">Optional offline eu5.monitoring-bundle/v1 file (1 MiB maximum)</span>
+            <span class="file-field-title">Optional exported monitoring JSON</span>
+            <span class="file-field-help">For offline review only. This input does not accept or parse .eu5 save files.</span>
             <input id="monitoring-file" type="file" accept=".json,application/json">
           </label>
           <div class="or-divider" aria-hidden="true"><span>or</span></div>
@@ -56,15 +56,20 @@
           </label>
         </div>
         <p id="input-message" class="input-message">
-          No snapshot data loaded. See README.md for the local data contract.
+          Snapshot comparison is optional. When this page is served by the local monitor,
+          operational records load automatically; .eu5 saves are observed by the server,
+          not uploaded here.
         </p>
       </section>
 
       <section id="monitoring-panel" class="panel detail-panel monitoring-panel" hidden aria-labelledby="monitoring-heading">
         <div class="section-heading">
           <div>
-            <p class="eyebrow">Offline monitoring import</p>
+            <p class="eyebrow">Local monitoring</p>
             <h2 id="monitoring-heading">Operational record bundle</h2>
+          </div>
+          <div id="live-status" class="status status-waiting live-status" role="status" aria-live="polite">
+            Detecting local feed
           </div>
         </div>
         <p id="monitoring-summary" class="input-message"></p>

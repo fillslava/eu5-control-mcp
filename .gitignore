@@ -8,3 +8,6 @@ coverage/
 # EU5 runtime data is never versioned here.
 *.eu5
 user_bindings/
+
+# Local monitoring sessions are runtime evidence, never repository fixtures.
+dashboard/current-session*.json

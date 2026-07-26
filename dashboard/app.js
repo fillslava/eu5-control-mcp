@@ -4,6 +4,7 @@
   const SNAPSHOT_SCHEMA = "eu5.before-after-dashboard.snapshot/v1";
   const PAIR_SCHEMA = "eu5.before-after-dashboard.pair/v1";
   const MONITORING_BUNDLE_SCHEMA = "eu5.monitoring-bundle/v1";
+  const LIVE_FEED_SCHEMA = "eu5.monitoring-feed/v1";
   const CLASSIFICATIONS = new Set([
     "verified-snapshot-pair",
     "candidate-snapshot-pair",
@@ -503,22 +504,57 @@
     return bundle;
   }
 
+  function validateLiveMonitoringFeed(feed) {
+    if (!isPlainObject(feed)) {
+      throw new Error("Live monitoring feed must be an object");
+    }
+    const allowedKeys = new Set([
+      "schemaVersion", "feedId", "generatedAtUtc", "sourceMode", "records", "integrity"
+    ]);
+    for (const key of Object.keys(feed)) {
+      if (!allowedKeys.has(key)) {
+        throw new Error(`Live monitoring feed contains unsupported top-level field ${key}`);
+      }
+    }
+    if (feed.schemaVersion !== LIVE_FEED_SCHEMA) {
+      throw new Error(`schemaVersion must be ${LIVE_FEED_SCHEMA}`);
+    }
+    assertNonEmptyString(feed.feedId, "feedId");
+    if (feed.sourceMode !== "local-live") {
+      throw new Error("sourceMode must be local-live");
+    }
+    validateMonitoringBundle({
+      schemaVersion: MONITORING_BUNDLE_SCHEMA,
+      bundleId: feed.feedId,
+      generatedAtUtc: feed.generatedAtUtc,
+      sourceMode: "offline-import",
+      records: feed.records,
+      integrity: feed.integrity
+    });
+    return feed;
+  }
+
   function validateMonitoringSafeValue(value, path) {
     // Normalize separators and case so `sessionToken`, `api_key`, and
     // `API-KEY` cannot bypass the local-import credential boundary.
     const forbiddenKey = /token|secret|password|cookie|authorization|apikey|credential|privatekey|bearer/i;
-    const localPath = /^(?:[a-z]:[\\/]|\\\\|file:)/i;
+    const localPath = /(?:[a-z]:[\\/]|\\\\|file:)/i;
+    const credentialValue =
+      /\b(?:authorization\s*:\s*(?:bearer|basic)\s+\S+|bearer\s+[a-z0-9._~+/=-]{8,}|(?:api[\s_-]*key|access[\s_-]*token|refresh[\s_-]*token|password|secret)\s*[:=]\s*\S+)/i;
     const stack = [{ value, path }];
     while (stack.length) {
       const current = stack.pop();
       if (typeof current.value === "string" && localPath.test(current.value)) {
         throw new Error(`${current.path} must not contain local paths`);
       }
+      if (typeof current.value === "string" && credentialValue.test(current.value)) {
+        throw new Error(`${current.path} must not contain credential-like text`);
+      }
       if (Array.isArray(current.value)) {
         current.value.forEach((item, index) => stack.push({ value: item, path: `${current.path}[${index}]` }));
       } else if (isPlainObject(current.value)) {
         for (const [key, item] of Object.entries(current.value)) {
-          const normalizedKey = key.replace(/[_.-]/g, "");
+          const normalizedKey = key.replace(/[^a-z0-9]/gi, "");
           if (forbiddenKey.test(normalizedKey)) throw new Error(`${current.path}.${key} must not contain secrets`);
           stack.push({ value: item, path: `${current.path}.${key}` });
         }
@@ -562,6 +598,114 @@
         rawArtifactSha256: record.provenance.rawArtifactSha256 || null
       }))),
       warnings
+    };
+  }
+
+  function buildLiveMonitoringModel(feedInput) {
+    const feed = validateLiveMonitoringFeed(feedInput);
+    const model = buildMonitoringModel({
+      schemaVersion: MONITORING_BUNDLE_SCHEMA,
+      bundleId: feed.feedId,
+      generatedAtUtc: feed.generatedAtUtc,
+      sourceMode: "offline-import",
+      records: feed.records,
+      integrity: feed.integrity
+    });
+    model.bundle = feed;
+    model.isLive = true;
+    return model;
+  }
+
+  function createLivePoller({
+    fetchFn,
+    onUpdate,
+    onStatus = () => {},
+    setTimeoutFn = setTimeout,
+    clearTimeoutFn = clearTimeout,
+    intervalMs = 2000,
+    requestTimeoutMs = 1500,
+    url = "/api/monitoring"
+  }) {
+    if (typeof fetchFn !== "function" || typeof onUpdate !== "function") {
+      throw new TypeError("createLivePoller requires fetchFn and onUpdate");
+    }
+    let active = false;
+    let nextTimer = null;
+    const requestTimers = new Map();
+    const requestControllers = new Map();
+    const inFlightGenerations = new Set();
+    let generation = 0;
+
+    function schedule() {
+      if (!active) return;
+      nextTimer = setTimeoutFn(pollOnce, intervalMs);
+    }
+
+    async function pollOnce() {
+      if (!active || inFlightGenerations.has(generation)) return;
+      const pollGeneration = generation;
+      inFlightGenerations.add(pollGeneration);
+      const controller =
+        typeof AbortController === "function" ? new AbortController() : null;
+      if (controller) {
+        requestControllers.set(pollGeneration, controller);
+        requestTimers.set(
+          pollGeneration,
+          setTimeoutFn(() => controller.abort(), requestTimeoutMs)
+        );
+      }
+      try {
+        const response = await fetchFn(url, {
+          cache: "no-store",
+          headers: { Accept: "application/json" },
+          ...(controller ? { signal: controller.signal } : {})
+        });
+        if (!response || !response.ok) {
+          throw new Error(`HTTP ${response && response.status || "unavailable"}`);
+        }
+        const model = buildLiveMonitoringModel(await response.json());
+        if (!active || pollGeneration !== generation) return;
+        onUpdate(model);
+        onStatus({ connected: true, generatedAtUtc: model.bundle.generatedAtUtc });
+      } catch {
+        if (active && pollGeneration === generation) {
+          onStatus({ connected: false });
+        }
+      } finally {
+        const requestTimer = requestTimers.get(pollGeneration);
+        if (requestTimer !== undefined) clearTimeoutFn(requestTimer);
+        requestTimers.delete(pollGeneration);
+        requestControllers.delete(pollGeneration);
+        inFlightGenerations.delete(pollGeneration);
+        if (active && pollGeneration === generation) schedule();
+      }
+    }
+
+    return {
+      start() {
+        if (active) return;
+        active = true;
+        generation += 1;
+        void pollOnce();
+      },
+      stop() {
+        active = false;
+        generation += 1;
+        if (nextTimer !== null) clearTimeoutFn(nextTimer);
+        for (const requestTimer of requestTimers.values()) {
+          clearTimeoutFn(requestTimer);
+        }
+        for (const controller of requestControllers.values()) {
+          controller.abort();
+        }
+        requestTimers.clear();
+        requestControllers.clear();
+        nextTimer = null;
+      },
+      pollOnce,
+      isActive() {
+        return active;
+      }
     };
   }
 
@@ -695,7 +839,14 @@
   function renderMonitoringModel(documentRef, elements, model) {
     elements.monitoringPanel.hidden = !model;
     if (!model) return;
-    setText(elements.monitoringSummary, `${model.bundle.bundleId}: ${model.bundle.records.length} local record(s); offline import only.`);
+    const sourceId = model.bundle.bundleId || model.bundle.feedId;
+    const sourceLabel = model.isLive
+      ? "loopback live feed; observational only"
+      : "offline import only";
+    setText(
+      elements.monitoringSummary,
+      `${sourceId}: ${model.bundle.records.length} local record(s); ${sourceLabel}.`
+    );
     elements.monitoringWarnings.replaceChildren();
     for (const warning of model.warnings) {
       const item = documentRef.createElement("li");
@@ -802,6 +953,8 @@
       timelineBody: documentRef.getElementById("timeline-body"),
       nationBody: documentRef.getElementById("nation-body"),
       provenanceBody: documentRef.getElementById("provenance-body")
+      ,
+      liveStatus: documentRef.getElementById("live-status")
     };
   }
 
@@ -816,6 +969,7 @@
     let currentModel = emptyModel();
     let individualSnapshots = { before: null, after: null };
     let monitoringModel = null;
+    let livePoller = null;
 
     function render() {
       renderModel(documentRef, elements, currentModel, filter.value);
@@ -887,6 +1041,7 @@
       const file = monitoringInput.files && monitoringInput.files[0];
       if (!file) return;
       try {
+        if (livePoller) livePoller.stop();
         monitoringModel = buildMonitoringModel(await readJsonFile(file));
         render();
       } catch (error) {
@@ -907,18 +1062,59 @@
       monitoringModel = null;
       filter.value = "all";
       render();
+      if (livePoller) livePoller.start();
     });
 
     render();
+
+    const locationRef = documentRef.defaultView && documentRef.defaultView.location;
+    const isLoopback =
+      locationRef &&
+      (locationRef.hostname === "127.0.0.1" || locationRef.hostname === "localhost") &&
+      /^https?:$/.test(locationRef.protocol);
+    if (isLoopback && typeof documentRef.defaultView.fetch === "function") {
+      livePoller = createLivePoller({
+        fetchFn: documentRef.defaultView.fetch.bind(documentRef.defaultView),
+        onUpdate(model) {
+          monitoringModel = model;
+          if (!currentModel.pair) {
+            currentModel.message =
+              "Live monitoring is active. Before/after snapshot comparison remains optional.";
+          }
+          render();
+        },
+        onStatus(status) {
+          if (!elements.liveStatus) return;
+          if (status.connected) {
+            setText(
+              elements.liveStatus,
+              `Live feed connected · refreshed ${status.generatedAtUtc}`
+            );
+            elements.liveStatus.className = "status status-ready live-status";
+          } else {
+            setText(
+              elements.liveStatus,
+              "Live feed disconnected · retaining last valid records"
+            );
+            elements.liveStatus.className = "status status-unverified live-status";
+          }
+        }
+      });
+      livePoller.start();
+    } else if (elements.liveStatus) {
+      setText(elements.liveStatus, "Offline file mode");
+    }
   }
 
   const api = {
     SNAPSHOT_SCHEMA,
     PAIR_SCHEMA,
     MONITORING_BUNDLE_SCHEMA,
+    LIVE_FEED_SCHEMA,
     LIMITS,
     buildModel,
     buildMonitoringModel,
+    buildLiveMonitoringModel,
     classifyField,
     compareStates,
     emptyModel,
@@ -927,9 +1123,11 @@
     formatValue,
     parseCanonicalUtcTimestamp,
     readJsonFile,
+    createLivePoller,
     validateStateBounds,
     validatePair,
     validateMonitoringBundle,
+    validateLiveMonitoringFeed,
     validateSnapshot
   };
 

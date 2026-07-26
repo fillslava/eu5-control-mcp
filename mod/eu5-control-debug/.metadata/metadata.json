@@ -1,9 +1,9 @@
 {
   "name": "EU5 Control Debug",
   "id": "eu5-control-debug",
-  "version": "0.1.0",
+  "version": "0.2.3",
   "supported_game_version": "1.3.*",
-  "short_description": "Workspace-only diagnostic scaffold with an effect-free scripted GUI proof.",
+  "short_description": "Disposable-campaign diagnostic panel with three fixed structured read-only procedures.",
   "tags": [
     "Utilities"
   ],

@@ -27,7 +27,7 @@ is not source verification.
 | Navigation preparation and validation | Return finite procedures for opening verified views such as Economy; provisional click candidates remain non-operational without fresh target verification. | Returning or sending a navigation procedure is not a data capture and does not prove the expected UI appeared. |
 | `src/read/market-export.js` | Parses a bounded, synthetic three-column TSV contract, with 1 MiB and 10,000-row limits. | Its format is fixture-derived and unverified. It is not compatible with the locally documented command output described below. |
 | `src/control/market-export-contract.js` | Describes `export_market_capacity` as blocked by policy, ineligible for execution, and parameter-free. | It never executes the command. Neither this contract nor the parser is registered as an MCP tool in `src/server.js`. |
-| `mod/eu5-control-debug` | Provides an uninstalled, effect-free scripted-GUI scaffold. | It has no GUI attachment, performs no export, and is not a metric source. |
+| `mod/eu5-control-debug` | Provides an effect-free scripted-GUI scaffold; the current test workstation has a reviewed installed copy. | It has no automatic GUI attachment, performs no export, and is not a metric source. |
 | Optional monitoring-bundle picker | Renders an explicitly selected local `eu5.monitoring-bundle/v1` file as ledger, health, timeline, nation, and provenance records. | It is offline-import only, does not verify supplied integrity claims, and does not promote a before/after comparison. |
 
 The source readers and dashboard are therefore disconnected by design. There is

@@ -61,11 +61,12 @@ and action-lifecycle records described above. The MCP cannot execute UI input,
 run console text, or turn a prepared dispatch into an in-game action.
 
 **Debug diagnostic mode** is restricted to a separately approved disposable
-session. Its workspace-only `eu5-control-debug` panel has exactly three fixed,
+session. Its `eu5-control-debug` panel has exactly three fixed,
 read-only log procedures (`emit_ping`, `emit_player_scope`, and
 `emit_state_snapshot`); it has no text entry or arbitrary-console route. The
-panel is not installed, enabled, or attached automatically. Do not enable the
-debug mode or mod in a normal campaign.
+current test workstation has a reviewed installed copy, but the panel is not
+enabled or attached automatically. Do not enable the debug mode or mod in a
+normal campaign.
 
 ## Read-only baseline manifest
 

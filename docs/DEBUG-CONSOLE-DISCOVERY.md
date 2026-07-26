@@ -51,6 +51,7 @@ armies, warfare, diplomacy, events, AI, laws, or the date in the normal
 campaign. `-debug_mode` itself changes the checksum and disables achievement
 conditions; remove it and all mods before returning to a clean campaign.
 
-The debug panel is not installed, enabled, or attached automatically. Its
-presence is not authorization to run it, and it must never be used as an
-execution route in a normal campaign.
+The current test workstation has a reviewed installed copy of the debug panel,
+but it is not enabled or attached automatically. Its presence is not
+authorization to run it, and it must never be used as an execution route in a
+normal campaign.

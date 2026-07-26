@@ -1,47 +1,17 @@
 ﻿eu5_control_debug_emit_ping = {
-    scope = country
-
-    is_shown = {
-        always = yes
-    }
-
-    is_valid = {
-        always = yes
-    }
-
     effect = {
-        debug_log = "EU5 Control Debug: emit_ping"
+        debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"bridge_health\",\"procedure\":\"emit_ping\",\"modVersion\":\"0.2.3\",\"status\":\"acknowledged\",\"observationJoinRequired\":true}"
     }
 }
 
 eu5_control_debug_emit_player_scope = {
-    scope = country
-
-    is_shown = {
-        always = yes
-    }
-
-    is_valid = {
-        always = yes
-    }
-
     effect = {
-        debug_log = "EU5 Control Debug: emit_player_scope"
+        debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"player_scope\",\"procedure\":\"emit_player_scope\",\"modVersion\":\"0.2.3\",\"status\":\"acknowledged\",\"observationJoinRequired\":true}"
     }
 }
 
 eu5_control_debug_emit_state_snapshot = {
-    scope = country
-
-    is_shown = {
-        always = yes
-    }
-
-    is_valid = {
-        always = yes
-    }
-
     effect = {
-        debug_log = "EU5 Control Debug: emit_state_snapshot"
+        debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"state_snapshot\",\"procedure\":\"emit_state_snapshot\",\"modVersion\":\"0.2.3\",\"status\":\"acknowledged\",\"observationJoinRequired\":true}"
     }
 }

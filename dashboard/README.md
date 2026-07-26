@@ -184,9 +184,9 @@ or prove that matching entity/session identifiers are truthful. Those checks
 must happen at the source. An `unverified` or `fixture` snapshot stays visibly
 non-verified in the UI.
 
-Because the page is static, browser refreshes clear all loaded data. This is
-intentional: there is no persistence, telemetry, network request, or background
-game access.
+When opened directly as a file, browser refreshes clear all loaded data and the
+page makes no network requests. When served by the repository's loopback-only
+monitor, it automatically loads the local observational feed described below.
 
 ## Optional monitoring bundle
 
@@ -215,3 +215,25 @@ and `health`. The dashboard does not verify a supplied hash or prove a source;
 missing integrity metadata, unverified records, fixture records, stale records,
 and unknown freshness remain visible as warnings. Imports containing local paths
 or secret-bearing field names are rejected.
+
+## Live local monitoring
+
+Start the loopback-only dashboard server:
+
+```powershell
+npm.cmd run dashboard:live
+```
+
+Then open `http://127.0.0.1:8765/`. When served from `127.0.0.1` or
+`localhost`, the page polls the same-origin `/api/monitoring` endpoint every
+two seconds. No file selection is required. The endpoint returns only:
+
+- recognized `EU5_CONTROL ` JSON records using `eu5.control-log/v1`;
+- allowlisted lifecycle fields from the append-only control ledger; and
+- metadata for the newest save checkpoint.
+
+Raw log lines, configured directories, evidence paths, credentials, and save
+contents are never returned. An `.eu5` file is not valid dashboard input; the
+optional file picker accepts only an exported `eu5.monitoring-bundle/v1` JSON
+document for offline review. If the live endpoint disconnects, the page keeps
+the last valid records visible and marks the feed disconnected.
