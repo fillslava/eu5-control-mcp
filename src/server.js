@@ -7,6 +7,7 @@ const { StdioServerTransport } = require("@modelcontextprotocol/sdk/server/stdio
 const { z } = require("zod");
 const { listSaveCheckpoints } = require("./read/save-inventory");
 const { latestSaveCheckpoint } = require("./read/latest-save");
+const { listDebugExports } = require("./read/debug-export-inventory");
 const { validateActionPreview } = require("./control/action-gate");
 const { COMMANDS, prepareNavigationCommand } = require("./control/navigation-commands");
 const {
@@ -19,6 +20,35 @@ const server = new McpServer({
   name: "eu5-control-mcp",
   version: "0.1.0"
 });
+
+server.registerTool(
+  "eu5_list_debug_exports",
+  {
+    title: "List EU5 debug exports",
+    description:
+      "Return metadata-only inventory for console.txt, docs/*.log, and logs/data_types/*.txt under EU5_USER_DIRECTORY or the standard EU5 user folder. Never reads file contents or executes console commands.",
+    inputSchema: {},
+    annotations: { readOnlyHint: true, destructiveHint: false }
+  },
+  async () => {
+    try {
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify(listDebugExports(), null, 2)
+        }]
+      };
+    } catch (error) {
+      return {
+        isError: true,
+        content: [{
+          type: "text",
+          text: `Safe debug-export inventory error: ${error.message}`
+        }]
+      };
+    }
+  }
+);
 
 server.registerTool(
   "eu5_list_save_checkpoints",
