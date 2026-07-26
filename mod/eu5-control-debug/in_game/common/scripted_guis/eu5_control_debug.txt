@@ -1,4 +1,4 @@
-eu5_control_debug_diagnostic = {
+﻿eu5_control_debug_diagnostic = {
     scope = country
 
     is_shown = {
