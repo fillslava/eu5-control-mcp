@@ -1,0 +1,67 @@
+{
+  "schemaVersion": "eu5.before-after-dashboard.pair/v1",
+  "classification": "fixture-example",
+  "displayLabel": "SYNTHETIC FIXTURE / EXAMPLE — NOT REAL EU5 STATE",
+  "before": {
+    "schemaVersion": "eu5.before-after-dashboard.snapshot/v1",
+    "role": "before",
+    "snapshotId": "fixture-before",
+    "captureSessionId": "fixture-capture-session",
+    "entityId": "fixture-entity",
+    "adapter": {
+      "id": "fixture-adapter",
+      "version": "0.0.0-fixture"
+    },
+    "rawContentSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "fieldDefinitionFingerprint": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "capturedAt": "2000-01-01T00:00:00.000Z",
+    "gameTime": "EXAMPLE_PRE_TIME",
+    "source": {
+      "label": "Synthetic dashboard fixture",
+      "kind": "fixture-example",
+      "freshness": "unknown",
+      "verification": {
+        "status": "fixture",
+        "evidence": "Example structure only; not observed from EU5."
+      }
+    },
+    "state": {
+      "example": {
+        "changedText": "BEFORE_EXAMPLE",
+        "unchangedText": "SAME_EXAMPLE",
+        "unknownText": null
+      }
+    }
+  },
+  "after": {
+    "schemaVersion": "eu5.before-after-dashboard.snapshot/v1",
+    "role": "after",
+    "snapshotId": "fixture-after",
+    "captureSessionId": "fixture-capture-session",
+    "entityId": "fixture-entity",
+    "adapter": {
+      "id": "fixture-adapter",
+      "version": "0.0.0-fixture"
+    },
+    "rawContentSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "fieldDefinitionFingerprint": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "capturedAt": "2000-01-01T00:01:00.000Z",
+    "gameTime": "EXAMPLE_POST_TIME",
+    "source": {
+      "label": "Synthetic dashboard fixture",
+      "kind": "fixture-example",
+      "freshness": "unknown",
+      "verification": {
+        "status": "fixture",
+        "evidence": "Example structure only; not observed from EU5."
+      }
+    },
+    "state": {
+      "example": {
+        "changedText": "AFTER_EXAMPLE",
+        "unchangedText": "SAME_EXAMPLE",
+        "unknownText": "UNVERIFIED_EXAMPLE"
+      }
+    }
+  }
+}

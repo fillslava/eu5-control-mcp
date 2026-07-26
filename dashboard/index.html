@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <title>EU5 Before / After Snapshot Dashboard</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Local comparison tool</p>
+          <h1>EU5 before / after</h1>
+          <p class="hero-copy">
+            Compare explicitly supplied state snapshots. Files remain in this browser tab and
+            are not uploaded.
+          </p>
+        </div>
+        <div id="overall-status" class="status status-waiting" role="status" aria-live="polite">
+          Awaiting verified snapshots
+        </div>
+      </header>
+
+      <section class="panel input-panel" aria-labelledby="input-heading">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Input</p>
+            <h2 id="input-heading">Supply snapshots</h2>
+          </div>
+          <button id="reset-button" class="button button-secondary" type="button">Clear</button>
+        </div>
+
+        <div class="input-grid">
+          <label class="file-field file-field-pair">
+            <span class="file-field-title">Snapshot pair JSON</span>
+            <span class="file-field-help">A pair/v1 document containing before and after snapshots (1 MiB maximum)</span>
+            <input id="pair-file" type="file" accept=".json,application/json">
+          </label>
+          <div class="or-divider" aria-hidden="true"><span>or</span></div>
+          <label class="file-field">
+            <span class="file-field-title">Before snapshot JSON</span>
+            <span class="file-field-help">A snapshot/v1 document with role “before” (1 MiB maximum)</span>
+            <input id="before-file" type="file" accept=".json,application/json">
+          </label>
+          <label class="file-field">
+            <span class="file-field-title">After snapshot JSON</span>
+            <span class="file-field-help">A snapshot/v1 document with role “after” (1 MiB maximum)</span>
+            <input id="after-file" type="file" accept=".json,application/json">
+          </label>
+        </div>
+        <p id="input-message" class="input-message">
+          No snapshot data loaded. See README.md for the local data contract.
+        </p>
+      </section>
+
+      <section id="fixture-warning" class="fixture-warning" hidden>
+        <strong>Fixture / example data</strong>
+        <span id="fixture-label"></span>
+      </section>
+
+      <section class="snapshot-grid" aria-label="Snapshot provenance">
+        <article class="panel snapshot-card">
+          <div class="card-heading">
+            <p class="eyebrow">Pre-state</p>
+            <h2>Before</h2>
+          </div>
+          <dl class="metadata-list">
+            <div><dt>Source</dt><dd id="before-source">Not supplied</dd></div>
+            <div><dt>Captured</dt><dd id="before-captured">Unknown</dd></div>
+            <div><dt>Game time</dt><dd id="before-game-time">Unknown</dd></div>
+            <div><dt>Freshness</dt><dd><span id="before-freshness" class="badge badge-unknown">Unknown</span></dd></div>
+            <div><dt>Verification</dt><dd><span id="before-verification" class="badge badge-unknown">Unknown</span></dd></div>
+          </dl>
+        </article>
+
+        <article class="panel snapshot-card">
+          <div class="card-heading">
+            <p class="eyebrow">Post-state</p>
+            <h2>After</h2>
+          </div>
+          <dl class="metadata-list">
+            <div><dt>Source</dt><dd id="after-source">Not supplied</dd></div>
+            <div><dt>Captured</dt><dd id="after-captured">Unknown</dd></div>
+            <div><dt>Game time</dt><dd id="after-game-time">Unknown</dd></div>
+            <div><dt>Freshness</dt><dd><span id="after-freshness" class="badge badge-unknown">Unknown</span></dd></div>
+            <div><dt>Verification</dt><dd><span id="after-verification" class="badge badge-unknown">Unknown</span></dd></div>
+          </dl>
+        </article>
+      </section>
+
+      <section class="metrics-grid" aria-label="Comparison summary">
+        <article class="metric metric-changed">
+          <span class="metric-label">Changed</span>
+          <strong id="changed-count">—</strong>
+        </article>
+        <article class="metric metric-unchanged">
+          <span class="metric-label">Unchanged</span>
+          <strong id="unchanged-count">—</strong>
+        </article>
+        <article class="metric metric-unknown">
+          <span class="metric-label">Unknown</span>
+          <strong id="unknown-count">—</strong>
+        </article>
+      </section>
+
+      <section class="panel detail-panel" aria-labelledby="detail-heading">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Field-level comparison</p>
+            <h2 id="detail-heading">Details</h2>
+          </div>
+          <label class="filter-field">
+            <span>Show</span>
+            <select id="status-filter">
+              <option value="all">All fields</option>
+              <option value="changed">Changed</option>
+              <option value="unchanged">Unchanged</option>
+              <option value="unknown">Unknown</option>
+            </select>
+          </label>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Field</th>
+                <th scope="col">Before</th>
+                <th scope="col">After</th>
+                <th scope="col">Status</th>
+              </tr>
+            </thead>
+            <tbody id="detail-body">
+              <tr class="empty-row">
+                <td colspan="4">Awaiting verified snapshots. No game-state values are loaded.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
