@@ -110,7 +110,7 @@ const RELATION_VALUES = new Set([
 ]);
 const MAX_TYPED_AGE_MS = 5 * 60 * 1000;
 const MAX_FUTURE_SKEW_MS = 30 * 1000;
-const REVIEWED_TELEMETRY_MOD_VERSION = "0.4.0";
+const REVIEWED_TELEMETRY_MOD_VERSION = "0.5.0";
 const PARTIAL_EXPORTS = Object.freeze({
   nation: Object.freeze({
     recordType: "player_summary",
@@ -190,16 +190,46 @@ const PARTIAL_FACTS = Object.freeze({
     })
   }),
   markets: Object.freeze({
-    hasMarketCenters: Object.freeze({ availability: "available", type: "boolean" }),
+    capitalMarketIdDisplay: Object.freeze({
+      availability: "available",
+      type: "string"
+    }),
+    capitalMarketNameDisplay: Object.freeze({
+      availability: "available",
+      type: "string"
+    }),
+    capitalLocationMarketAccessDisplay: Object.freeze({
+      availability: "available",
+      type: "string"
+    }),
+    monthlyFoodBalanceDisplay: Object.freeze({
+      availability: "available",
+      type: "string"
+    }),
+    foodStockpileDisplay: Object.freeze({
+      availability: "available",
+      type: "string"
+    }),
+    maxFoodStockpileDisplay: Object.freeze({
+      availability: "available",
+      type: "string"
+    }),
+    foodStockpilePercentDisplay: Object.freeze({
+      availability: "available",
+      type: "string"
+    }),
+    foodPriceDisplay: Object.freeze({
+      availability: "available",
+      type: "string"
+    }),
+    totalValueTradedDisplay: Object.freeze({
+      availability: "available",
+      type: "string"
+    }),
     marketCount: Object.freeze({
       availability: "unavailable",
       unit: "markets",
       reason: "no_json_safe_collection_serializer"
-    }),
-    foodStockpile: Object.freeze({
-      availability: "unavailable",
-      unit: "food",
-      reason: "requires_market_scope_and_scalar_serializer"
     }),
     shortages: Object.freeze({
       availability: "unavailable",

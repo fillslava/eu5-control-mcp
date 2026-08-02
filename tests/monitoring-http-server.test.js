@@ -86,7 +86,7 @@ test("loopback server rejects a non-loopback Host header", async (t) => {
   assert.equal(status, 421);
 });
 
-test("monitoring endpoint stays available for real v0.4.0 partial headers and facts", async (t) => {
+test("monitoring endpoint stays available for real v0.5.0 partial headers and facts", async (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "eu5-http-v040-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const logPath = path.join(root, "debug.log");
@@ -95,7 +95,7 @@ test("monitoring endpoint stays available for real v0.4.0 partial headers and fa
     recordType: "economy_snapshot",
     procedure: "emit_economy_snapshot",
     section: "economy",
-    modVersion: "0.4.0",
+    modVersion: "0.5.0",
     status: "acknowledged",
     completeness: "partial",
     observationJoinRequired: true
@@ -108,7 +108,7 @@ test("monitoring endpoint stays available for real v0.4.0 partial headers and fa
     field: "monthlyBalanceClass",
     value: "non_negative",
     availability: "available",
-    modVersion: "0.4.0",
+    modVersion: "0.5.0",
     status: "observed"
   };
   const unavailableFact = {
@@ -121,7 +121,7 @@ test("monitoring endpoint stays available for real v0.4.0 partial headers and fa
     unit: "gold_per_month",
     availability: "unavailable",
     reason: "no_json_safe_scalar_serializer",
-    modVersion: "0.4.0",
+    modVersion: "0.5.0",
     status: "observed"
   };
   const observedAt = new Date("2026-07-26T17:00:16.000Z");

@@ -287,6 +287,71 @@ h2 {
   padding: 20px;
 }
 
+.domain-observations {
+  margin: -4px 0 16px;
+  padding: 13px;
+  border: 1px solid #725d87;
+  border-radius: 10px;
+  background: #251f32;
+}
+
+.observation-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.observation-heading strong {
+  color: #e0d3f2;
+  font-size: 0.82rem;
+}
+
+.observation-heading span {
+  color: #c1addc;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.observation-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.observation-card {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid #655878;
+  border-radius: 8px;
+  background: #191723;
+}
+
+.observation-card-label,
+.observation-card-source {
+  display: block;
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.observation-card-value {
+  display: block;
+  margin: 4px 0 5px;
+  overflow-wrap: anywhere;
+  color: #f2e9fb;
+  font-size: 0.98rem;
+}
+
+.observation-card-unavailable {
+  opacity: 0.72;
+}
+
+.observation-card-unavailable .observation-card-value {
+  color: #c8bdce;
+}
+
 .group-heading {
   display: flex;
   align-items: center;
@@ -896,7 +961,8 @@ td {
     text-align: left;
   }
 
-  .stat-card-grid {
+  .stat-card-grid,
+  .observation-card-grid {
     grid-template-columns: 1fr;
   }
 

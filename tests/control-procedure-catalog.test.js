@@ -59,6 +59,7 @@ test("catalog is versioned, finite, named, and exposes no generic execution prim
     "abort_to_pause",
     "recover_known_screen",
     "open_control_panel",
+    "dismiss_debug_console",
     "refresh_state",
     "open_capital",
     "economy",
@@ -69,7 +70,7 @@ test("catalog is versioned, finite, named, and exposes no generic execution prim
     "back",
     "close"
   ]);
-  assert.equal(listProcedures().length, 17);
+  assert.equal(listProcedures().length, 18);
   assert.throws(() => getProcedure("execute_effect"), /Unknown controlled EU5 procedure/);
 });
 
@@ -211,6 +212,32 @@ test("a human-proven visible button remains non-dispatchable without Computer Us
   assert.equal(result.allowed, false);
   assert.equal(result.code, REJECTION.NON_OPERATIONAL_ROUTE);
   assert.equal(result.dispatch, null);
+});
+
+test("control-panel metadata requires a fresh semantic label and a positively closed console", () => {
+  const snapshot = getProcedure("refresh_state");
+  assert.equal(snapshot.targetSchema.semanticLocatorRequired, true);
+  assert.equal(snapshot.targetSchema.consoleClosedRequired, true);
+  assert.equal(snapshot.targetSchema.freshScreenshotRequired, true);
+  assert.equal(snapshot.targetSchema.storedCoordinatesAllowed, false);
+  assert.equal(snapshot.targetSchema.panelPositionMayChange, true);
+  assert.ok(snapshot.preconditions.some((item) => /console.*closed/i.test(item)));
+  assert.ok(snapshot.preconditions.some((item) => /No stored coordinate/i.test(item)));
+});
+
+test("console dismissal is a finite Backquote-only candidate, never a console proxy", () => {
+  const dismiss = getProcedure("dismiss_debug_console");
+  assert.equal(dismiss.targetSchema.type, "reviewed_single_key");
+  assert.equal(dismiss.targetSchema.exactKey, "Backquote");
+  assert.equal(dismiss.targetSchema.onlyWhenConsoleVisible, true);
+  assert.equal(dismiss.targetSchema.keyPressCount, 1);
+  assert.equal(dismiss.targetSchema.arbitraryKeysAccepted, false);
+  assert.equal(dismiss.dispatch, null);
+  assert.equal(dismiss.expectedEvidence.kind, "console_state");
+  assert.equal(dismiss.expectedEvidence.consoleClosed, true);
+  assert.equal(JSON.stringify(dismiss).includes("console text"), true);
+  assert.equal("text" in dismiss.targetSchema, false);
+  assert.equal("command" in dismiss.targetSchema, false);
 });
 
 test("pause is a disabled candidate and never blindly toggles", () => {

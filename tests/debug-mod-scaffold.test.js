@@ -16,7 +16,14 @@ const LOCALIZATION_PATH = path.join(
   "english",
   "eu5_control_debug_l_english.yml"
 );
-const MOD_VERSION = "0.4.0";
+const RUSSIAN_LOCALIZATION_PATH = path.join(
+  MOD_ROOT,
+  "in_game",
+  "localization",
+  "russian",
+  "eu5_control_debug_l_russian.yml"
+);
+const MOD_VERSION = "0.5.0";
 const PROCEDURES = [
   "emit_ping",
   "emit_player_scope",
@@ -45,11 +52,20 @@ test("metadata has reviewed local-only identity and no replace paths", () => {
   );
 });
 
-test("scripted GUI source has the UTF-8 BOM required by the live lexer", () => {
+test("scripted GUI and supported localizations have the UTF-8 BOM required by the live lexer", () => {
   const bytes = fs.readFileSync(SCRIPTED_GUI_PATH);
   assert.deepEqual([...bytes.subarray(0, 3)], [0xef, 0xbb, 0xbf]);
-  const localizationBytes = fs.readFileSync(LOCALIZATION_PATH);
-  assert.deepEqual([...localizationBytes.subarray(0, 3)], [0xef, 0xbb, 0xbf]);
+  for (const localizationPath of [LOCALIZATION_PATH, RUSSIAN_LOCALIZATION_PATH]) {
+    const localizationBytes = fs.readFileSync(localizationPath);
+    assert.deepEqual([...localizationBytes.subarray(0, 3)], [0xef, 0xbb, 0xbf]);
+  }
+  const english = stripBom(fs.readFileSync(LOCALIZATION_PATH, "utf8"));
+  const russian = stripBom(fs.readFileSync(RUSSIAN_LOCALIZATION_PATH, "utf8"));
+  assert.equal(
+    russian.replace(/^l_russian:/, "l_english:"),
+    english,
+    "Russian-mode debug logging must expose the same reviewed telemetry templates"
+  );
 });
 
 test("static debug panel exposes exactly eight fixed procedure buttons and one bounded init ping", () => {
@@ -109,6 +125,15 @@ test("procedures use the vanilla minimal shape and emit only recognized structur
     "EU5_CONTROL_ECONOMY_ESTIMATED_TRADE_TAX_INCOME_DISPLAY",
     "EU5_CONTROL_ECONOMY_TREASURY_DISPLAY",
     "EU5_CONTROL_ECONOMY_MONTHLY_BALANCE_DISPLAY",
+    "EU5_CONTROL_MARKETS_CAPITAL_MARKET_ID_DISPLAY",
+    "EU5_CONTROL_MARKETS_CAPITAL_MARKET_NAME_DISPLAY",
+    "EU5_CONTROL_MARKETS_CAPITAL_LOCATION_MARKET_ACCESS_DISPLAY",
+    "EU5_CONTROL_MARKETS_MONTHLY_FOOD_BALANCE_DISPLAY",
+    "EU5_CONTROL_MARKETS_FOOD_STOCKPILE_DISPLAY",
+    "EU5_CONTROL_MARKETS_MAX_FOOD_STOCKPILE_DISPLAY",
+    "EU5_CONTROL_MARKETS_FOOD_STOCKPILE_PERCENT_DISPLAY",
+    "EU5_CONTROL_MARKETS_FOOD_PRICE_DISPLAY",
+    "EU5_CONTROL_MARKETS_TOTAL_VALUE_TRADED_DISPLAY",
     "EU5_CONTROL_MILITARY_ARMY_SIZE_DISPLAY",
     "EU5_CONTROL_MILITARY_NAVY_SIZE_DISPLAY",
     "EU5_CONTROL_MILITARY_MANPOWER_DISPLAY"
@@ -168,7 +193,7 @@ test("scaffold documents bounded debug installation and only the fixed opener", 
   assert.match(readme, /does not handle the `on_start` callback/);
   assert.match(readme, /contains only `effect = \{ \.\.\. \}`/);
   assert.match(readme, /hidden one-shot GUI animation runs `emit_ping`/);
-  assert.match(readme, /nine fixed localization keys to expose real, read-only display strings/);
+  assert.match(readme, /eighteen fixed localization keys to expose real, read-only display strings/);
   assert.match(readme, /must never populate\s+typed metrics, trends, or `currentState`/);
   assert.match(readme, /passes only\s+fixed localization keys/);
   assert.match(readme, /external monitor is authoritative for the last\s+procedure and result/);

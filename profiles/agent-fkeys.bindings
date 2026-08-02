@@ -1,0 +1,77 @@
+version=4
+binding={
+	input_action="max_zoom_out"
+	scancode=43
+}
+binding={
+	input_action="top_left_1"
+	scancode=58
+	modifier=ctrl
+	modifier=shift
+}
+binding={
+	input_action="top_left_2"
+	scancode=59
+	modifier=ctrl
+	modifier=shift
+}
+binding={
+	input_action="top_left_3"
+	scancode=60
+	modifier=ctrl
+	modifier=shift
+}
+binding={
+	input_action="top_left_4"
+	scancode=61
+	modifier=ctrl
+	modifier=shift
+}
+binding={
+	input_action="top_left_5"
+	scancode=62
+	modifier=ctrl
+	modifier=shift
+}
+binding={
+	input_action="top_left_6"
+	scancode=63
+	modifier=ctrl
+	modifier=shift
+}
+binding={
+	input_action="top_left_7"
+	scancode=64
+	modifier=ctrl
+	modifier=shift
+}
+binding={
+	input_action="top_left_8"
+	scancode=65
+	modifier=ctrl
+	modifier=shift
+}
+binding={
+	input_action="toggle_alert_stash"
+	scancode=66
+	modifier=ctrl
+	modifier=shift
+}
+binding={
+	input_action="find_province"
+	scancode=67
+	modifier=ctrl
+	modifier=shift
+}
+binding={
+	input_action="go_to_capital"
+	scancode=68
+	modifier=ctrl
+	modifier=shift
+}
+binding={
+	input_action="mapmode_menu"
+	scancode=69
+	modifier=ctrl
+	modifier=shift
+}

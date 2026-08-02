@@ -1,0 +1,133 @@
+window = {
+    name = "eu5_control_debug_window"
+    parentanchor = top|left
+    size = { 440 540 }
+    position = { 20 220 }
+    widgetanchor = top|left
+    movable = yes
+    using = editor_window
+    vbox = {
+        size = { 408 512 }
+        position = { 16 12 }
+        spacing = 8
+
+        text_single = {
+            name = "title"
+            size = { 408 28 }
+            align = center
+            raw_text = "EU5 Control Debug v0.4.0 (read-only)"
+        }
+
+        text_single = {
+            name = "test_session"
+            size = { 408 24 }
+            align = center
+            raw_text = "TEST SESSION: disposable non-Ironman campaign only"
+        }
+
+        text_single = {
+            name = "session"
+            size = { 408 24 }
+            align = center
+            raw_text = "[GetPlayer.GetNameWithNoTooltip] | [GetDateString]"
+        }
+
+        text_single = {
+            name = "paused"
+            size = { 408 22 }
+            align = center
+            visible = "[IsGamePaused]"
+            raw_text = "Bridge health: loaded | game paused"
+        }
+
+        text_single = {
+            name = "running"
+            size = { 408 22 }
+            align = center
+            visible = "[Not(IsGamePaused)]"
+            raw_text = "Bridge health: loaded | WARNING: game running"
+        }
+
+        text_single = {
+            name = "last_result"
+            size = { 408 34 }
+            align = center
+            raw_text = "Last procedure/result: external monitor is authoritative"
+        }
+
+        overlappingitembox = {
+            name = "bridge_init"
+            size = { 0 0 }
+            visible = no
+            state = {
+                name = bridge_init_ping
+                trigger_on_create = yes
+                duration = 0.1
+                on_finish = "[GetScriptedGui('eu5_control_debug_emit_ping').Execute(GuiScope.SetRoot(GetPlayer.MakeScope).End)]"
+            }
+        }
+
+        button_default = {
+            name = "emit_ping"
+            size = { 408 28 }
+            raw_text = "Emit ping"
+            onclick = "[GetScriptedGui('eu5_control_debug_emit_ping').Execute(GuiScope.SetRoot(GetPlayer.MakeScope).End)]"
+        }
+
+        button_default = {
+            name = "emit_player_scope"
+            size = { 408 28 }
+            raw_text = "Emit player scope"
+            onclick = "[GetScriptedGui('eu5_control_debug_emit_player_scope').Execute(GuiScope.SetRoot(GetPlayer.MakeScope).End)]"
+        }
+
+        button_default = {
+            name = "emit_state_snapshot"
+            size = { 408 28 }
+            raw_text = "Emit state snapshot"
+            onclick = "[GetScriptedGui('eu5_control_debug_emit_state_snapshot').Execute(GuiScope.SetRoot(GetPlayer.MakeScope).End)]"
+        }
+
+        button_default = {
+            name = "emit_player_summary"
+            size = { 408 28 }
+            raw_text = "Export nation summary"
+            onclick = "[GetScriptedGui('eu5_control_debug_emit_player_summary').Execute(GuiScope.SetRoot(GetPlayer.MakeScope).End)]"
+        }
+
+        button_default = {
+            name = "emit_economy_snapshot"
+            size = { 408 28 }
+            raw_text = "Export economy"
+            onclick = "[GetScriptedGui('eu5_control_debug_emit_economy_snapshot').Execute(GuiScope.SetRoot(GetPlayer.MakeScope).End)]"
+        }
+
+        button_default = {
+            name = "emit_markets_snapshot"
+            size = { 408 28 }
+            raw_text = "Export markets"
+            onclick = "[GetScriptedGui('eu5_control_debug_emit_markets_snapshot').Execute(GuiScope.SetRoot(GetPlayer.MakeScope).End)]"
+        }
+
+        button_default = {
+            name = "emit_diplomacy_snapshot"
+            size = { 408 28 }
+            raw_text = "Export diplomacy"
+            onclick = "[GetScriptedGui('eu5_control_debug_emit_diplomacy_snapshot').Execute(GuiScope.SetRoot(GetPlayer.MakeScope).End)]"
+        }
+
+        button_default = {
+            name = "emit_military_snapshot"
+            size = { 408 28 }
+            raw_text = "Export military"
+            onclick = "[GetScriptedGui('eu5_control_debug_emit_military_snapshot').Execute(GuiScope.SetRoot(GetPlayer.MakeScope).End)]"
+        }
+
+        text_single = {
+            name = "evidence_notice"
+            size = { 408 34 }
+            align = center
+            raw_text = "Result is verified only after a fresh EU5_CONTROL log record"
+        }
+    }
+}

@@ -1,0 +1,209 @@
+version=4
+
+binding={
+	input_action="max_zoom_out"
+	scancode=43
+}
+
+binding={
+	input_action="close_window_left"
+	scancode=13
+	modifier=ctrl
+	modifier=alt
+}
+
+binding={
+	input_action="close_window_right"
+	scancode=14
+	modifier=ctrl
+	modifier=alt
+}
+
+binding={
+	input_action="previous_window"
+	scancode=5
+	modifier=ctrl
+	modifier=alt
+}
+
+binding={
+	input_action="next_window"
+	scancode=17
+	modifier=ctrl
+	modifier=alt
+}
+
+binding={
+	input_action="toggle_window_collapse"
+	scancode=27
+	modifier=ctrl
+	modifier=alt
+}
+
+binding={
+	input_action="top_left_1"
+	scancode=10
+	modifier=ctrl
+	modifier=alt
+}
+
+binding={
+	input_action="top_left_2"
+	scancode=8
+	modifier=ctrl
+	modifier=alt
+}
+
+binding={
+	input_action="top_left_3"
+	scancode=19
+	modifier=ctrl
+	modifier=alt
+}
+
+binding={
+	input_action="top_left_4"
+	scancode=22
+	modifier=ctrl
+	modifier=alt
+}
+
+binding={
+	input_action="top_left_5"
+	scancode=24
+	modifier=ctrl
+	modifier=alt
+}
+
+binding={
+	input_action="top_left_6"
+	scancode=11
+	modifier=ctrl
+	modifier=alt
+}
+
+binding={
+	input_action="top_left_7"
+	scancode=28
+	modifier=ctrl
+	modifier=alt
+}
+
+binding={
+	input_action="top_left_8"
+	scancode=4
+	modifier=ctrl
+	modifier=alt
+}
+
+binding={
+	input_action="toggle_alert_stash"
+	scancode=23
+	modifier=ctrl
+	modifier=alt
+}
+
+binding={
+	input_action="find_province"
+	scancode=20
+	modifier=ctrl
+	modifier=alt
+}
+
+binding={
+	input_action="go_to_capital"
+	scancode=6
+	modifier=ctrl
+	modifier=alt
+}
+
+binding={
+	input_action="mapmode_menu"
+	scancode=25
+	modifier=ctrl
+	modifier=alt
+}
+
+binding={
+	input_action="mapmode_slot_1"
+	scancode=30
+	modifier=ctrl
+	modifier=alt
+}
+
+binding={
+	input_action="mapmode_slot_2"
+	scancode=31
+	modifier=ctrl
+	modifier=alt
+}
+
+binding={
+	input_action="mapmode_slot_3"
+	scancode=32
+	modifier=ctrl
+	modifier=alt
+}
+
+binding={
+	input_action="mapmode_slot_4"
+	scancode=33
+	modifier=ctrl
+	modifier=alt
+}
+
+binding={
+	input_action="mapmode_slot_5"
+	scancode=34
+	modifier=ctrl
+	modifier=alt
+}
+
+binding={
+	input_action="mapmode_slot_6"
+	scancode=35
+	modifier=ctrl
+	modifier=alt
+}
+
+binding={
+	input_action="mapmode_slot_7"
+	scancode=36
+	modifier=ctrl
+	modifier=alt
+}
+
+binding={
+	input_action="mapmode_slot_8"
+	scancode=37
+	modifier=ctrl
+	modifier=alt
+}
+
+binding={
+	input_action="mapmode_slot_9"
+	scancode=38
+	modifier=ctrl
+	modifier=alt
+}
+
+binding={
+	input_action="mapmode_slot_10"
+	scancode=39
+	modifier=ctrl
+	modifier=alt
+}
+
+binding={
+	input_action="mapmode_slot_11"
+	scancode=18
+	modifier=ctrl
+	modifier=alt
+}
+
+binding={
+	input_action="mapmode_slot_12"
+	scancode=26
+	modifier=ctrl
+	modifier=alt
+}

@@ -15,7 +15,7 @@ window = {
             name = "title"
             size = { 408 28 }
             align = center
-            raw_text = "EU5 Control Debug v0.4.0 (read-only)"
+            raw_text = "EU5 Control Debug v0.5.0 (read-only)"
         }
 
         text_single = {
@@ -105,7 +105,7 @@ window = {
         button_default = {
             name = "emit_markets_snapshot"
             size = { 408 28 }
-            raw_text = "Export markets"
+            raw_text = "Export capital market"
             onclick = "[GetScriptedGui('eu5_control_debug_emit_markets_snapshot').Execute(GuiScope.SetRoot(GetPlayer.MakeScope).End)]"
         }
 

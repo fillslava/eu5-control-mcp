@@ -53,7 +53,7 @@ function typed(recordType, payload, overrides = {}) {
     military_snapshot: "emit_military_snapshot"
   };
   return structured({
-    modVersion: "0.4.0",
+    modVersion: "0.5.0",
     recordType,
     procedure: procedures[recordType],
     eventId: `${recordType}-1`,
@@ -95,7 +95,7 @@ function protocolFixture(t) {
     campaignId: "holland-test",
     countryId: "HOL",
     gameBuild: "1.0.2",
-    modVersion: "0.4.0",
+    modVersion: "0.5.0",
     modManifestSha256: "a".repeat(64),
     seedSaveSha256: "b".repeat(64)
   };
@@ -146,7 +146,7 @@ function signedApproval(declaration) {
     countryId: "HOL",
     sessionFingerprintSha256: declaration.sessionFingerprintSha256,
     gameBuild: "1.0.2",
-    modVersion: "0.4.0",
+    modVersion: "0.5.0",
     modManifestSha256: "a".repeat(64),
     seedSaveSha256: "b".repeat(64),
     campaign: "holland-test",
@@ -197,7 +197,7 @@ function sealLedgerEvents(events) {
 
 function trustedContext(overrides = {}, secret = EVIDENCE_SECRET) {
   const context = {
-    modVersion: "0.4.0",
+    modVersion: "0.5.0",
     campaignId: "holland-test",
     captureSessionId: "capture-1",
     manifestSha256: "a".repeat(64),
@@ -584,7 +584,7 @@ test("typed telemetry is verified only by exact reviewed manifest and session ev
   for (const mismatch of [
     { captureSessionId: "capture-other" },
     { campaignId: "other-campaign" },
-    { modVersion: "0.5.0" },
+    { modVersion: "0.4.0" },
     { manifestSha256: "A".repeat(64) }
   ]) {
     const downgraded = structuredLogRecords({
@@ -605,7 +605,7 @@ test("typed telemetry is verified only by exact reviewed manifest and session ev
   });
   assert.equal(forged[0].provenance.verification.status, "unverified");
   const unreviewed = typed("player_summary", basePayload({ capturedAtUtc }), {
-    modVersion: "0.5.0"
+    modVersion: "0.4.0"
   });
   assert.equal(
     parseEu5ControlLine(wrapped(unreviewed), { now: options.now }),
@@ -778,11 +778,11 @@ test("every mod producer literal and branch satisfies the strict consumer contra
   ]);
   assert.equal(
     parsed.filter((record) => record.recordType === "telemetry_fact").length,
-    32
+    29
   );
 });
 
-test("every v0.4.0 localization display fact is accepted only as an unverified partial observation", () => {
+test("every v0.5.0 localization display fact is accepted only as an unverified partial observation", () => {
   const localizationPath = path.join(
     __dirname,
     "..",
@@ -800,7 +800,7 @@ test("every v0.4.0 localization display fact is accepted only as an unverified p
     const line = match[1].replace(/\\"/g, '"');
     return line.slice("EU5_CONTROL ".length);
   });
-  assert.equal(localized.length, 9);
+  assert.equal(localized.length, 18);
   const parsed = localized.map((line, index) =>
     parseEu5ControlLine(
       `[17:00:${16 + index}][jomini_effect_impl.cpp:479]: common/scripted_guis/eu5_control_debug.txt:${22 + index}: EU5_CONTROL ${line}`
@@ -810,7 +810,7 @@ test("every v0.4.0 localization display fact is accepted only as an unverified p
   assert.ok(parsed.every((record) => record.recordType === "telemetry_fact"));
   assert.ok(parsed.every((record) => record.availability === "available"));
   assert.ok(parsed.every((record) => typeof record.value === "string"));
-  assert.ok(parsed.every((record) => record.modVersion === "0.4.0"));
+  assert.ok(parsed.every((record) => record.modVersion === "0.5.0"));
   assert.equal(
     parsed.some((record) =>
       record.eventId !== undefined ||
@@ -829,7 +829,7 @@ test("strict partial telemetry keeps supported facts and explicit unavailable fi
       recordType: "economy_snapshot",
       procedure: "emit_economy_snapshot",
       section: "economy",
-      modVersion: "0.4.0",
+      modVersion: "0.5.0",
       status: "acknowledged",
       completeness: "partial",
       observationJoinRequired: true
@@ -842,7 +842,7 @@ test("strict partial telemetry keeps supported facts and explicit unavailable fi
       field: "monthlyBalanceClass",
       value: "negative",
       availability: "available",
-      modVersion: "0.4.0",
+      modVersion: "0.5.0",
       status: "observed"
     },
     {
@@ -855,7 +855,7 @@ test("strict partial telemetry keeps supported facts and explicit unavailable fi
       unit: "gold_per_month",
       availability: "unavailable",
       reason: "no_json_safe_scalar_serializer",
-      modVersion: "0.4.0",
+      modVersion: "0.5.0",
       status: "observed"
     }
   ];
@@ -870,13 +870,76 @@ test("strict partial telemetry keeps supported facts and explicit unavailable fi
   };
   assert.equal(parseEu5ControlLine(wrapped(malformed, 110)), null);
   assert.equal(
-    parseEu5ControlLine(wrapped({ ...partialRecords[2], reason: "C:\\private" }, 111)),
+    parseEu5ControlLine(wrapped({ ...partialRecords[1], value: "" }, 111)),
+    null,
+    "available string facts must never admit an empty resolved value"
+  );
+  assert.equal(
+    parseEu5ControlLine(wrapped({ ...partialRecords[2], reason: "C:\\private" }, 112)),
     null
   );
   assert.equal(
-    parseEu5ControlLine(wrapped({ ...partialRecords[0], arbitrary: true }, 112)),
+    parseEu5ControlLine(wrapped({ ...partialRecords[0], arbitrary: true }, 113)),
     null
   );
+});
+
+test("v0.5.0 capital-market display facts are accepted as partial observations", () => {
+  const fields = {
+    capitalMarketIdDisplay: "42",
+    capitalMarketNameDisplay: "Amsterdam Market",
+    capitalLocationMarketAccessDisplay: "92.50",
+    monthlyFoodBalanceDisplay: "+4.25",
+    foodStockpileDisplay: "123.50",
+    maxFoodStockpileDisplay: "200.00",
+    foodStockpilePercentDisplay: "61.75",
+    foodPriceDisplay: "1.08",
+    totalValueTradedDisplay: "440.25"
+  };
+  for (const [index, [field, value]] of Object.entries(fields).entries()) {
+    const parsed = parseEu5ControlLine(wrapped({
+      schemaVersion: CONTROL_LOG_SCHEMA,
+      recordType: "telemetry_fact",
+      procedure: "emit_markets_snapshot",
+      section: "markets",
+      field,
+      value,
+      availability: "available",
+      modVersion: "0.5.0",
+      status: "observed"
+    }, 130 + index));
+    assert.ok(parsed, `${field} should satisfy the strict consumer`);
+    assert.equal(parsed.field, field);
+    assert.equal(parsed.value, value);
+  }
+});
+
+test("v0.5.0 rejects removed v0.4 market facts", () => {
+  const removedFacts = [
+    {
+      field: "hasMarketCenters",
+      value: true,
+      availability: "available"
+    },
+    {
+      field: "foodStockpile",
+      value: null,
+      unit: "food",
+      availability: "unavailable",
+      reason: "requires_market_scope_and_scalar_serializer"
+    }
+  ];
+  for (const [index, fact] of removedFacts.entries()) {
+    assert.equal(parseEu5ControlLine(wrapped({
+      schemaVersion: CONTROL_LOG_SCHEMA,
+      recordType: "telemetry_fact",
+      procedure: "emit_markets_snapshot",
+      section: "markets",
+      ...fact,
+      modVersion: "0.5.0",
+      status: "observed"
+    }, 150 + index)), null);
+  }
 });
 
 test("partial observation summary uses only facts after the latest fresh domain header", () => {
@@ -928,7 +991,7 @@ test("repeated partial exports preserve line order and keep facts in their captu
     recordType: "economy_snapshot",
     procedure: "emit_economy_snapshot",
     section: "economy",
-    modVersion: "0.4.0",
+    modVersion: "0.5.0",
     status: "acknowledged",
     completeness: "partial",
     observationJoinRequired: true
@@ -941,7 +1004,7 @@ test("repeated partial exports preserve line order and keep facts in their captu
     field: "monthlyBalanceClass",
     value,
     availability: "available",
-    modVersion: "0.4.0",
+    modVersion: "0.5.0",
     status: "observed"
   });
   fs.writeFileSync(logPath, [

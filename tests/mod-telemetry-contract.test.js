@@ -22,21 +22,51 @@ const LOCALIZATION_PATH = path.join(
   "english",
   "eu5_control_debug_l_english.yml"
 );
+const LOCALIZATION_PATHS = [
+  LOCALIZATION_PATH,
+  path.join(
+    MOD_ROOT,
+    "in_game",
+    "localization",
+    "russian",
+    "eu5_control_debug_l_russian.yml"
+  )
+];
 const EXPECTED_LOCALIZATION_VALUES = Object.freeze({
-  EU5_CONTROL_NATION_COUNTRY_TAG: "[ROOT.GetCountry.GetTag]",
+  EU5_CONTROL_NATION_COUNTRY_TAG: "[SCOPE.sCountry('eu5_control_actor').GetTag]",
   EU5_CONTROL_NATION_GAME_DATE_DISPLAY: "[GetDateString]",
   EU5_CONTROL_ECONOMY_ESTIMATED_MONTHLY_INCOME_DISPLAY:
-    "[ROOT.GetCountry.GetEstimatedMonthlyIncome|2]",
+    "[SCOPE.sCountry('eu5_control_actor').GetEstimatedMonthlyIncome|2]",
   EU5_CONTROL_ECONOMY_ESTIMATED_TRADE_TAX_INCOME_DISPLAY:
-    "[ROOT.GetCountry.GetEstimatedMonthlyIncomeTradeAndTax|2]",
+    "[SCOPE.sCountry('eu5_control_actor').GetEstimatedMonthlyIncomeTradeAndTax|2]",
   EU5_CONTROL_ECONOMY_TREASURY_DISPLAY:
-    "[ROOT.GetCountry.GetFixedPointCurrencyValue('gold')|2]",
+    "[SCOPE.sCountry('eu5_control_actor').GetFixedPointCurrencyValue('gold')|2]",
   EU5_CONTROL_ECONOMY_MONTHLY_BALANCE_DISPLAY:
-    "[ROOT.GetCountry.GetCurrencyBalance('gold')|2]",
-  EU5_CONTROL_MILITARY_ARMY_SIZE_DISPLAY: "[ROOT.GetCountry.GetArmySize]",
-  EU5_CONTROL_MILITARY_NAVY_SIZE_DISPLAY: "[ROOT.GetCountry.GetNavySize]",
+    "[SCOPE.sCountry('eu5_control_actor').GetCurrencyBalance('gold')|2]",
+  EU5_CONTROL_MARKETS_CAPITAL_MARKET_ID_DISPLAY:
+    "[SCOPE.sCountry('eu5_control_actor').GetCapital.GetMarket.GetID]",
+  EU5_CONTROL_MARKETS_CAPITAL_MARKET_NAME_DISPLAY:
+    "[SCOPE.sCountry('eu5_control_actor').GetCapital.GetMarket.GetNameWithNoTooltip]",
+  EU5_CONTROL_MARKETS_CAPITAL_LOCATION_MARKET_ACCESS_DISPLAY:
+    "[SCOPE.sCountry('eu5_control_actor').GetCapital.GetMarketAccess|%2]",
+  EU5_CONTROL_MARKETS_MONTHLY_FOOD_BALANCE_DISPLAY:
+    "[SCOPE.sCountry('eu5_control_actor').GetCapital.GetMarket.GetMonthlyFoodBalance|2]",
+  EU5_CONTROL_MARKETS_FOOD_STOCKPILE_DISPLAY:
+    "[SCOPE.sCountry('eu5_control_actor').GetCapital.GetMarket.GetFoodStockpile|2]",
+  EU5_CONTROL_MARKETS_MAX_FOOD_STOCKPILE_DISPLAY:
+    "[SCOPE.sCountry('eu5_control_actor').GetCapital.GetMarket.GetMaxFoodStockpile|2]",
+  EU5_CONTROL_MARKETS_FOOD_STOCKPILE_PERCENT_DISPLAY:
+    "[SCOPE.sCountry('eu5_control_actor').GetCapital.GetMarket.GetFoodStockpilePercent|2]%",
+  EU5_CONTROL_MARKETS_FOOD_PRICE_DISPLAY:
+    "[SCOPE.sCountry('eu5_control_actor').GetCapital.GetMarket.GetFoodPrice|2]",
+  EU5_CONTROL_MARKETS_TOTAL_VALUE_TRADED_DISPLAY:
+    "[SCOPE.sCountry('eu5_control_actor').GetCapital.GetMarket.GetTotalValueTraded|2]",
+  EU5_CONTROL_MILITARY_ARMY_SIZE_DISPLAY:
+    "[SCOPE.sCountry('eu5_control_actor').GetArmySize]",
+  EU5_CONTROL_MILITARY_NAVY_SIZE_DISPLAY:
+    "[SCOPE.sCountry('eu5_control_actor').GetNavySizeValue|0]",
   EU5_CONTROL_MILITARY_MANPOWER_DISPLAY:
-    "[ROOT.GetCountry.GetCurrencyValue('manpower')]"
+    "[SCOPE.sCountry('eu5_control_actor').GetCurrencyValue('manpower')]"
 });
 
 const EXPECTED = {
@@ -62,9 +92,19 @@ const EXPECTED = {
   emit_markets_snapshot: {
     recordType: "markets_snapshot",
     section: "markets",
-    available: ["hasMarketCenters"],
-    display: [],
-    unavailable: ["marketCount", "foodStockpile", "shortages"]
+    available: [],
+    display: [
+      "capitalMarketIdDisplay",
+      "capitalMarketNameDisplay",
+      "capitalLocationMarketAccessDisplay",
+      "monthlyFoodBalanceDisplay",
+      "foodStockpileDisplay",
+      "maxFoodStockpileDisplay",
+      "foodStockpilePercentDisplay",
+      "foodPriceDisplay",
+      "totalValueTradedDisplay"
+    ],
+    unavailable: ["marketCount", "shortages"]
   },
   emit_diplomacy_snapshot: {
     recordType: "diplomacy_snapshot",
@@ -146,11 +186,21 @@ test("telemetry exporters declare their partial envelope and typed field coverag
         status: "acknowledged",
         completeness: "partial",
         observationJoinRequired: true,
-        modVersion: "0.4.0"
+        modVersion: "0.5.0"
       }
     );
 
     const facts = emitted.filter((record) => record.recordType === "telemetry_fact");
+    const expectedFields = [
+      ...expected.available,
+      ...expected.display,
+      ...expected.unavailable
+    ].sort();
+    assert.deepEqual(
+      [...new Set(facts.map((record) => record.field))].sort(),
+      expectedFields,
+      `${procedure} producer fields must exactly match the v0.5 contract`
+    );
     for (const field of expected.available) {
       const variants = facts.filter(
         (record) => record.field === field && record.availability === "available"
@@ -159,7 +209,7 @@ test("telemetry exporters declare their partial envelope and typed field coverag
         `${procedure}.${field} must have explicit observed variants`);
       assert.ok(variants.every((record) => record.value !== null));
       assert.ok(variants.every((record) => record.status === "observed"));
-      assert.ok(variants.every((record) => record.modVersion === "0.4.0"));
+      assert.ok(variants.every((record) => record.modVersion === "0.5.0"));
     }
     for (const field of expected.unavailable) {
       const unavailable = facts.find((record) => record.field === field);
@@ -167,7 +217,7 @@ test("telemetry exporters declare their partial envelope and typed field coverag
       assert.equal(unavailable.availability, "unavailable");
       assert.equal(unavailable.value, null);
       assert.equal(unavailable.status, "observed");
-      assert.equal(unavailable.modVersion, "0.4.0");
+      assert.equal(unavailable.modVersion, "0.5.0");
       assert.match(unavailable.reason, /^(?:no_json_safe_|requires_|use_)/);
     }
     for (const field of expected.display) {
@@ -176,13 +226,29 @@ test("telemetry exporters declare their partial envelope and typed field coverag
       );
       assert.equal(display.length, 1, `${procedure}.${field} must have one live template`);
       assert.equal(typeof display[0].value, "string");
-      assert.match(display[0].value, /^\[(?:ROOT\.GetCountry\.Get|GetDateString)/);
+      assert.match(
+        display[0].value,
+        /^\[(?:SCOPE\.sCountry\('eu5_control_actor'\)|GetDateString)/
+      );
       assert.equal(display[0].status, "observed");
-      assert.equal(display[0].modVersion, "0.4.0");
+      assert.equal(display[0].modVersion, "0.5.0");
       assert.equal(Object.hasOwn(display[0], "unit"), false);
       assert.equal(Object.hasOwn(display[0], "reason"), false);
     }
   }
+});
+
+test("v0.5 market producer omits removed v0.4 fields", () => {
+  const emitted = records(
+    procedureBody(source(), "emit_markets_snapshot")
+  );
+  const fields = new Set(
+    emitted
+      .filter((record) => record.recordType === "telemetry_fact")
+      .map((record) => record.field)
+  );
+  assert.equal(fields.has("hasMarketCenters"), false);
+  assert.equal(fields.has("foodStockpile"), false);
 });
 
 test("localization producers are fixed read-only templates with documented getters", () => {
@@ -198,7 +264,7 @@ test("localization producers are fixed read-only templates with documented gette
   assert.ok(values.every((record) => record.schemaVersion === "eu5.control-log/v1"));
   assert.ok(values.every((record) => record.recordType === "telemetry_fact"));
   assert.ok(values.every((record) => record.availability === "available"));
-  assert.ok(values.every((record) => record.modVersion === "0.4.0"));
+  assert.ok(values.every((record) => record.modVersion === "0.5.0"));
   assert.ok(values.every((record) => typeof record.value === "string"));
   assert.doesNotMatch(
     fs.readFileSync(LOCALIZATION_PATH, "utf8"),
@@ -206,19 +272,75 @@ test("localization producers are fixed read-only templates with documented gette
   );
 });
 
+test("log localization uses the temporary scripted country scope without control-code formatters", () => {
+  const scriptedGui = source();
+  const scopedProcedures = [
+    "emit_player_summary",
+    "emit_economy_snapshot",
+    "emit_markets_snapshot",
+    "emit_diplomacy_snapshot",
+    "emit_military_snapshot"
+  ];
+  for (const procedure of scopedProcedures) {
+    assert.match(
+      procedureBody(scriptedGui, procedure),
+      /effect\s*=\s*\{\s*root\s*=\s*\{/,
+      `${procedure} must enter the GuiScope root before country-scoped effects`
+    );
+    assert.match(
+      procedureBody(scriptedGui, procedure),
+      /save_temporary_scope_as\s*=\s*eu5_control_actor/,
+      `${procedure} must bind the country scope before localized debug_log output`
+    );
+  }
+  for (const localizationPath of LOCALIZATION_PATHS) {
+    const localized = fs.readFileSync(localizationPath, "utf8");
+    assert.doesNotMatch(
+      localized,
+      /\[GetPlayer\./,
+      `${localizationPath} must not call GetPlayer from synchronous log localization`
+    );
+    assert.doesNotMatch(
+      localized,
+      /\[ROOT\./,
+      `${localizationPath} must not resolve ROOT from synchronous log localization`
+    );
+    assert.match(
+      localized,
+      /\[SCOPE\.sCountry\('eu5_control_actor'\)\./,
+      `${localizationPath} must use the reviewed named country scope`
+    );
+    assert.doesNotMatch(localized, /\[InGameTopbar\./);
+    assert.doesNotMatch(
+      localized,
+      /\|(?:\+=|V)/,
+      `${localizationPath} must not emit color/control-code formatters into JSON`
+    );
+  }
+});
+
 test("literal mod templates flow only into unverified partial live observations", (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "eu5-real-mod-contract-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const substitutions = new Map([
-    ["[ROOT.GetCountry.GetTag]", "HOL"],
+    ["[SCOPE.sCountry('eu5_control_actor').GetTag]", "HOL"],
     ["[GetDateString]", "12 May 1337"],
-    ["[ROOT.GetCountry.GetEstimatedMonthlyIncome|2]", "63.80"],
-    ["[ROOT.GetCountry.GetEstimatedMonthlyIncomeTradeAndTax|2]", "42.10"],
-    ["[ROOT.GetCountry.GetFixedPointCurrencyValue('gold')|2]", "109.42"],
-    ["[ROOT.GetCountry.GetCurrencyBalance('gold')|2]", "2.14"],
-    ["[ROOT.GetCountry.GetArmySize]", "0"],
-    ["[ROOT.GetCountry.GetNavySize]", "3"],
-    ["[ROOT.GetCountry.GetCurrencyValue('manpower')]", "12.4K"]
+    ["[SCOPE.sCountry('eu5_control_actor').GetEstimatedMonthlyIncome|2]", "63.80"],
+    ["[SCOPE.sCountry('eu5_control_actor').GetEstimatedMonthlyIncomeTradeAndTax|2]", "42.10"],
+    ["[SCOPE.sCountry('eu5_control_actor').GetFixedPointCurrencyValue('gold')|2]", "109.42"],
+    ["[SCOPE.sCountry('eu5_control_actor').GetCurrencyBalance('gold')|2]", "2.14"],
+    ["[SCOPE.sCountry('eu5_control_actor').GetCapital.GetMarket.GetID]", "7"],
+    ["[SCOPE.sCountry('eu5_control_actor').GetCapital.GetMarket.GetNameWithNoTooltip]", "Lothair"],
+    ["[SCOPE.sCountry('eu5_control_actor').GetCapital.GetMarketAccess|%2]", "74.86%"],
+    ["[SCOPE.sCountry('eu5_control_actor').GetCapital.GetMarket.GetMonthlyFoodBalance|2]", "2.10"],
+    ["[SCOPE.sCountry('eu5_control_actor').GetCapital.GetMarket.GetFoodStockpile|2]", "319.50"],
+    ["[SCOPE.sCountry('eu5_control_actor').GetCapital.GetMarket.GetMaxFoodStockpile|2]", "500.00"],
+    ["[SCOPE.sCountry('eu5_control_actor').GetCapital.GetMarket.GetFoodStockpilePercent|2]%", "64.20%"],
+    ["[SCOPE.sCountry('eu5_control_actor').GetCapital.GetMarket.GetFoodPrice|2]", "0.82"],
+    ["[SCOPE.sCountry('eu5_control_actor').GetCapital.GetMarket.GetTotalValueTraded|2]", "28.10"],
+    ["[SCOPE.sCountry('eu5_control_actor').GetArmySize]", "0"],
+    ["[SCOPE.sCountry('eu5_control_actor').GetNavySizeValue|0]", "3"],
+    ["[SCOPE.sCountry('eu5_control_actor').GetCurrencyValue('manpower')]", "12.4K"]
   ]);
   const script = source();
   const emitted = [];
@@ -289,6 +411,18 @@ test("literal mod templates flow only into unverified partial live observations"
     "2.14"
   );
   assert.equal(
+    feed.currentObservations.domains.markets.fields.capitalMarketNameDisplay.value,
+    "Lothair"
+  );
+  assert.equal(
+    feed.currentObservations.domains.markets.fields.capitalLocationMarketAccessDisplay.value,
+    "74.86%"
+  );
+  assert.equal(
+    feed.currentObservations.domains.markets.fields.monthlyFoodBalanceDisplay.value,
+    "2.10"
+  );
+  assert.equal(
     feed.currentObservations.domains.military.fields.armySizeDisplay.value,
     "0"
   );
@@ -326,6 +460,8 @@ test("telemetry effects use only reviewed read-only control flow and triggers", 
     "eu5_control_debug_emit_state_snapshot",
     ...Object.keys(EXPECTED).map((name) => "eu5_control_debug_" + name),
     "effect",
+    "root",
+    "save_temporary_scope_as",
     "if",
     "else",
     "limit",

@@ -1,0 +1,110 @@
+version=4
+binding={
+	input_action="max_zoom_out"
+	scancode=43
+}
+binding={
+	input_action="top_left_1"
+	scancode=58
+	modifier=ctrl
+}
+binding={
+	input_action="top_left_2"
+	scancode=59
+	modifier=ctrl
+}
+binding={
+	input_action="top_left_3"
+	scancode=60
+	modifier=ctrl
+}
+binding={
+	input_action="top_left_4"
+	scancode=61
+	modifier=ctrl
+}
+binding={
+	input_action="top_left_5"
+	scancode=62
+	modifier=ctrl
+}
+binding={
+	input_action="top_left_6"
+	scancode=63
+	modifier=ctrl
+}
+binding={
+	input_action="top_left_7"
+	scancode=64
+	modifier=ctrl
+}
+binding={
+	input_action="top_left_8"
+	scancode=65
+	modifier=ctrl
+}
+binding={
+	input_action="toggle_alert_stash"
+	scancode=66
+	modifier=ctrl
+}
+binding={
+	input_action="find_province"
+	scancode=67
+	modifier=ctrl
+}
+binding={
+	input_action="go_to_capital"
+	scancode=68
+	modifier=ctrl
+}
+binding={
+	input_action="mapmode_menu"
+	scancode=69
+	modifier=ctrl
+}
+binding={
+	input_action="close_window_left"
+	scancode=2
+	modifier=ctrl
+}
+binding={
+	input_action="close_window_right"
+	scancode=3
+	modifier=ctrl
+}
+binding={
+	input_action="previous_window"
+	scancode=4
+	modifier=ctrl
+}
+binding={
+	input_action="next_window"
+	scancode=5
+	modifier=ctrl
+}
+binding={
+	input_action="previous_window_left"
+	scancode=6
+	modifier=ctrl
+}
+binding={
+	input_action="previous_window_right"
+	scancode=7
+	modifier=ctrl
+}
+binding={
+	input_action="next_window_left"
+	scancode=8
+	modifier=ctrl
+}
+binding={
+	input_action="next_window_right"
+	scancode=9
+	modifier=ctrl
+}
+binding={
+	input_action="toggle_window_collapse"
+	scancode=10
+	modifier=ctrl
+}

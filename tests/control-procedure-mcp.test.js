@@ -77,6 +77,7 @@ test("MCP exposes a finite policy catalogue without an input executor", async (t
       "abort_to_pause",
       "recover_known_screen",
       "open_control_panel",
+      "dismiss_debug_console",
       "refresh_state",
       "open_capital",
       "economy",

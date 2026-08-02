@@ -1,138 +1,154 @@
 ﻿eu5_control_debug_emit_ping = {
     effect = {
-        debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"bridge_health\",\"procedure\":\"emit_ping\",\"modVersion\":\"0.4.0\",\"status\":\"acknowledged\",\"observationJoinRequired\":true}"
+        debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"bridge_health\",\"procedure\":\"emit_ping\",\"modVersion\":\"0.5.0\",\"status\":\"acknowledged\",\"observationJoinRequired\":true}"
     }
 }
 
 eu5_control_debug_emit_player_scope = {
     effect = {
-        debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"player_scope\",\"procedure\":\"emit_player_scope\",\"modVersion\":\"0.4.0\",\"status\":\"acknowledged\",\"observationJoinRequired\":true}"
+        debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"player_scope\",\"procedure\":\"emit_player_scope\",\"modVersion\":\"0.5.0\",\"status\":\"acknowledged\",\"observationJoinRequired\":true}"
     }
 }
 
 eu5_control_debug_emit_state_snapshot = {
     effect = {
-        debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"state_snapshot\",\"procedure\":\"emit_state_snapshot\",\"modVersion\":\"0.4.0\",\"status\":\"acknowledged\",\"observationJoinRequired\":true}"
+        debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"state_snapshot\",\"procedure\":\"emit_state_snapshot\",\"modVersion\":\"0.5.0\",\"status\":\"acknowledged\",\"observationJoinRequired\":true}"
     }
 }
 
 eu5_control_debug_emit_player_summary = {
     effect = {
-        debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"player_summary\",\"procedure\":\"emit_player_summary\",\"section\":\"nation\",\"modVersion\":\"0.4.0\",\"status\":\"acknowledged\",\"completeness\":\"partial\",\"observationJoinRequired\":true}"
+        root = {
+        save_temporary_scope_as = eu5_control_actor
+        debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"player_summary\",\"procedure\":\"emit_player_summary\",\"section\":\"nation\",\"modVersion\":\"0.5.0\",\"status\":\"acknowledged\",\"completeness\":\"partial\",\"observationJoinRequired\":true}"
         debug_log = EU5_CONTROL_NATION_COUNTRY_TAG
         debug_log = EU5_CONTROL_NATION_GAME_DATE_DISPLAY
         if = {
             limit = { at_war = yes }
-            debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_player_summary\",\"section\":\"nation\",\"field\":\"atWar\",\"value\":true,\"availability\":\"available\",\"modVersion\":\"0.4.0\",\"status\":\"observed\"}"
+            debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_player_summary\",\"section\":\"nation\",\"field\":\"atWar\",\"value\":true,\"availability\":\"available\",\"modVersion\":\"0.5.0\",\"status\":\"observed\"}"
         }
         else = {
-            debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_player_summary\",\"section\":\"nation\",\"field\":\"atWar\",\"value\":false,\"availability\":\"available\",\"modVersion\":\"0.4.0\",\"status\":\"observed\"}"
+            debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_player_summary\",\"section\":\"nation\",\"field\":\"atWar\",\"value\":false,\"availability\":\"available\",\"modVersion\":\"0.5.0\",\"status\":\"observed\"}"
         }
         if = {
             limit = { is_subject = yes }
-            debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_player_summary\",\"section\":\"nation\",\"field\":\"isSubject\",\"value\":true,\"availability\":\"available\",\"modVersion\":\"0.4.0\",\"status\":\"observed\"}"
+            debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_player_summary\",\"section\":\"nation\",\"field\":\"isSubject\",\"value\":true,\"availability\":\"available\",\"modVersion\":\"0.5.0\",\"status\":\"observed\"}"
         }
         else = {
-            debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_player_summary\",\"section\":\"nation\",\"field\":\"isSubject\",\"value\":false,\"availability\":\"available\",\"modVersion\":\"0.4.0\",\"status\":\"observed\"}"
+            debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_player_summary\",\"section\":\"nation\",\"field\":\"isSubject\",\"value\":false,\"availability\":\"available\",\"modVersion\":\"0.5.0\",\"status\":\"observed\"}"
         }
-        debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_player_summary\",\"section\":\"nation\",\"field\":\"countryName\",\"value\":null,\"availability\":\"unavailable\",\"reason\":\"no_json_safe_scalar_serializer\",\"modVersion\":\"0.4.0\",\"status\":\"observed\"}"
-        debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_player_summary\",\"section\":\"nation\",\"field\":\"gameDate\",\"value\":null,\"availability\":\"unavailable\",\"reason\":\"use_debug_log_date_or_external_observation\",\"modVersion\":\"0.4.0\",\"status\":\"observed\"}"
+        debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_player_summary\",\"section\":\"nation\",\"field\":\"countryName\",\"value\":null,\"availability\":\"unavailable\",\"reason\":\"no_json_safe_scalar_serializer\",\"modVersion\":\"0.5.0\",\"status\":\"observed\"}"
+        debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_player_summary\",\"section\":\"nation\",\"field\":\"gameDate\",\"value\":null,\"availability\":\"unavailable\",\"reason\":\"use_debug_log_date_or_external_observation\",\"modVersion\":\"0.5.0\",\"status\":\"observed\"}"
+        }
     }
 }
 
 eu5_control_debug_emit_economy_snapshot = {
     effect = {
-        debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"economy_snapshot\",\"procedure\":\"emit_economy_snapshot\",\"section\":\"economy\",\"modVersion\":\"0.4.0\",\"status\":\"acknowledged\",\"completeness\":\"partial\",\"observationJoinRequired\":true}"
+        root = {
+        save_temporary_scope_as = eu5_control_actor
+        debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"economy_snapshot\",\"procedure\":\"emit_economy_snapshot\",\"section\":\"economy\",\"modVersion\":\"0.5.0\",\"status\":\"acknowledged\",\"completeness\":\"partial\",\"observationJoinRequired\":true}"
         debug_log = EU5_CONTROL_ECONOMY_ESTIMATED_MONTHLY_INCOME_DISPLAY
         debug_log = EU5_CONTROL_ECONOMY_ESTIMATED_TRADE_TAX_INCOME_DISPLAY
         debug_log = EU5_CONTROL_ECONOMY_TREASURY_DISPLAY
         debug_log = EU5_CONTROL_ECONOMY_MONTHLY_BALANCE_DISPLAY
         if = {
             limit = { monthly_balance < 0 }
-            debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_economy_snapshot\",\"section\":\"economy\",\"field\":\"monthlyBalanceClass\",\"value\":\"negative\",\"availability\":\"available\",\"modVersion\":\"0.4.0\",\"status\":\"observed\"}"
+            debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_economy_snapshot\",\"section\":\"economy\",\"field\":\"monthlyBalanceClass\",\"value\":\"negative\",\"availability\":\"available\",\"modVersion\":\"0.5.0\",\"status\":\"observed\"}"
         }
         else = {
-            debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_economy_snapshot\",\"section\":\"economy\",\"field\":\"monthlyBalanceClass\",\"value\":\"non_negative\",\"availability\":\"available\",\"modVersion\":\"0.4.0\",\"status\":\"observed\"}"
+            debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_economy_snapshot\",\"section\":\"economy\",\"field\":\"monthlyBalanceClass\",\"value\":\"non_negative\",\"availability\":\"available\",\"modVersion\":\"0.5.0\",\"status\":\"observed\"}"
         }
         if = {
             limit = { gold < 0 }
-            debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_economy_snapshot\",\"section\":\"economy\",\"field\":\"treasuryClass\",\"value\":\"negative\",\"availability\":\"available\",\"modVersion\":\"0.4.0\",\"status\":\"observed\"}"
+            debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_economy_snapshot\",\"section\":\"economy\",\"field\":\"treasuryClass\",\"value\":\"negative\",\"availability\":\"available\",\"modVersion\":\"0.5.0\",\"status\":\"observed\"}"
         }
         else = {
-            debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_economy_snapshot\",\"section\":\"economy\",\"field\":\"treasuryClass\",\"value\":\"non_negative\",\"availability\":\"available\",\"modVersion\":\"0.4.0\",\"status\":\"observed\"}"
+            debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_economy_snapshot\",\"section\":\"economy\",\"field\":\"treasuryClass\",\"value\":\"non_negative\",\"availability\":\"available\",\"modVersion\":\"0.5.0\",\"status\":\"observed\"}"
         }
-        debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_economy_snapshot\",\"section\":\"economy\",\"field\":\"monthlyBalance\",\"value\":null,\"unit\":\"gold_per_month\",\"availability\":\"unavailable\",\"reason\":\"no_json_safe_scalar_serializer\",\"modVersion\":\"0.4.0\",\"status\":\"observed\"}"
-        debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_economy_snapshot\",\"section\":\"economy\",\"field\":\"treasury\",\"value\":null,\"unit\":\"gold\",\"availability\":\"unavailable\",\"reason\":\"no_json_safe_scalar_serializer\",\"modVersion\":\"0.4.0\",\"status\":\"observed\"}"
-        debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_economy_snapshot\",\"section\":\"economy\",\"field\":\"monthlyIncomeTotal\",\"value\":null,\"unit\":\"gold_per_month\",\"availability\":\"unavailable\",\"reason\":\"no_json_safe_scalar_serializer\",\"modVersion\":\"0.4.0\",\"status\":\"observed\"}"
+        debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_economy_snapshot\",\"section\":\"economy\",\"field\":\"monthlyBalance\",\"value\":null,\"unit\":\"gold_per_month\",\"availability\":\"unavailable\",\"reason\":\"no_json_safe_scalar_serializer\",\"modVersion\":\"0.5.0\",\"status\":\"observed\"}"
+        debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_economy_snapshot\",\"section\":\"economy\",\"field\":\"treasury\",\"value\":null,\"unit\":\"gold\",\"availability\":\"unavailable\",\"reason\":\"no_json_safe_scalar_serializer\",\"modVersion\":\"0.5.0\",\"status\":\"observed\"}"
+        debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_economy_snapshot\",\"section\":\"economy\",\"field\":\"monthlyIncomeTotal\",\"value\":null,\"unit\":\"gold_per_month\",\"availability\":\"unavailable\",\"reason\":\"no_json_safe_scalar_serializer\",\"modVersion\":\"0.5.0\",\"status\":\"observed\"}"
+        }
     }
 }
 
 eu5_control_debug_emit_markets_snapshot = {
     effect = {
-        debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"markets_snapshot\",\"procedure\":\"emit_markets_snapshot\",\"section\":\"markets\",\"modVersion\":\"0.4.0\",\"status\":\"acknowledged\",\"completeness\":\"partial\",\"observationJoinRequired\":true}"
-        if = {
-            limit = { has_markets = yes }
-            debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_markets_snapshot\",\"section\":\"markets\",\"field\":\"hasMarketCenters\",\"value\":true,\"availability\":\"available\",\"modVersion\":\"0.4.0\",\"status\":\"observed\"}"
+        root = {
+        save_temporary_scope_as = eu5_control_actor
+        debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"markets_snapshot\",\"procedure\":\"emit_markets_snapshot\",\"section\":\"markets\",\"modVersion\":\"0.5.0\",\"status\":\"acknowledged\",\"completeness\":\"partial\",\"observationJoinRequired\":true}"
+        debug_log = EU5_CONTROL_MARKETS_CAPITAL_MARKET_ID_DISPLAY
+        debug_log = EU5_CONTROL_MARKETS_CAPITAL_MARKET_NAME_DISPLAY
+        debug_log = EU5_CONTROL_MARKETS_CAPITAL_LOCATION_MARKET_ACCESS_DISPLAY
+        debug_log = EU5_CONTROL_MARKETS_MONTHLY_FOOD_BALANCE_DISPLAY
+        debug_log = EU5_CONTROL_MARKETS_FOOD_STOCKPILE_DISPLAY
+        debug_log = EU5_CONTROL_MARKETS_MAX_FOOD_STOCKPILE_DISPLAY
+        debug_log = EU5_CONTROL_MARKETS_FOOD_STOCKPILE_PERCENT_DISPLAY
+        debug_log = EU5_CONTROL_MARKETS_FOOD_PRICE_DISPLAY
+        debug_log = EU5_CONTROL_MARKETS_TOTAL_VALUE_TRADED_DISPLAY
+        debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_markets_snapshot\",\"section\":\"markets\",\"field\":\"marketCount\",\"value\":null,\"unit\":\"markets\",\"availability\":\"unavailable\",\"reason\":\"no_json_safe_collection_serializer\",\"modVersion\":\"0.5.0\",\"status\":\"observed\"}"
+        debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_markets_snapshot\",\"section\":\"markets\",\"field\":\"shortages\",\"value\":null,\"availability\":\"unavailable\",\"reason\":\"no_json_safe_collection_serializer\",\"modVersion\":\"0.5.0\",\"status\":\"observed\"}"
         }
-        else = {
-            debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_markets_snapshot\",\"section\":\"markets\",\"field\":\"hasMarketCenters\",\"value\":false,\"availability\":\"available\",\"modVersion\":\"0.4.0\",\"status\":\"observed\"}"
-        }
-        debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_markets_snapshot\",\"section\":\"markets\",\"field\":\"marketCount\",\"value\":null,\"unit\":\"markets\",\"availability\":\"unavailable\",\"reason\":\"no_json_safe_collection_serializer\",\"modVersion\":\"0.4.0\",\"status\":\"observed\"}"
-        debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_markets_snapshot\",\"section\":\"markets\",\"field\":\"foodStockpile\",\"value\":null,\"unit\":\"food\",\"availability\":\"unavailable\",\"reason\":\"requires_market_scope_and_scalar_serializer\",\"modVersion\":\"0.4.0\",\"status\":\"observed\"}"
-        debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_markets_snapshot\",\"section\":\"markets\",\"field\":\"shortages\",\"value\":null,\"availability\":\"unavailable\",\"reason\":\"no_json_safe_collection_serializer\",\"modVersion\":\"0.4.0\",\"status\":\"observed\"}"
     }
 }
 
 eu5_control_debug_emit_diplomacy_snapshot = {
     effect = {
-        debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"diplomacy_snapshot\",\"procedure\":\"emit_diplomacy_snapshot\",\"section\":\"diplomacy\",\"modVersion\":\"0.4.0\",\"status\":\"acknowledged\",\"completeness\":\"partial\",\"observationJoinRequired\":true}"
+        root = {
+        save_temporary_scope_as = eu5_control_actor
+        debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"diplomacy_snapshot\",\"procedure\":\"emit_diplomacy_snapshot\",\"section\":\"diplomacy\",\"modVersion\":\"0.5.0\",\"status\":\"acknowledged\",\"completeness\":\"partial\",\"observationJoinRequired\":true}"
         if = {
             limit = { at_war = yes }
-            debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_diplomacy_snapshot\",\"section\":\"diplomacy\",\"field\":\"atWar\",\"value\":true,\"availability\":\"available\",\"modVersion\":\"0.4.0\",\"status\":\"observed\"}"
+            debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_diplomacy_snapshot\",\"section\":\"diplomacy\",\"field\":\"atWar\",\"value\":true,\"availability\":\"available\",\"modVersion\":\"0.5.0\",\"status\":\"observed\"}"
         }
         else = {
-            debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_diplomacy_snapshot\",\"section\":\"diplomacy\",\"field\":\"atWar\",\"value\":false,\"availability\":\"available\",\"modVersion\":\"0.4.0\",\"status\":\"observed\"}"
+            debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_diplomacy_snapshot\",\"section\":\"diplomacy\",\"field\":\"atWar\",\"value\":false,\"availability\":\"available\",\"modVersion\":\"0.5.0\",\"status\":\"observed\"}"
         }
         if = {
             limit = { is_subject = yes }
-            debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_diplomacy_snapshot\",\"section\":\"diplomacy\",\"field\":\"isSubject\",\"value\":true,\"availability\":\"available\",\"modVersion\":\"0.4.0\",\"status\":\"observed\"}"
+            debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_diplomacy_snapshot\",\"section\":\"diplomacy\",\"field\":\"isSubject\",\"value\":true,\"availability\":\"available\",\"modVersion\":\"0.5.0\",\"status\":\"observed\"}"
         }
         else = {
-            debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_diplomacy_snapshot\",\"section\":\"diplomacy\",\"field\":\"isSubject\",\"value\":false,\"availability\":\"available\",\"modVersion\":\"0.4.0\",\"status\":\"observed\"}"
+            debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_diplomacy_snapshot\",\"section\":\"diplomacy\",\"field\":\"isSubject\",\"value\":false,\"availability\":\"available\",\"modVersion\":\"0.5.0\",\"status\":\"observed\"}"
         }
-        debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_diplomacy_snapshot\",\"section\":\"diplomacy\",\"field\":\"relations\",\"value\":null,\"availability\":\"unavailable\",\"reason\":\"no_json_safe_collection_serializer\",\"modVersion\":\"0.4.0\",\"status\":\"observed\"}"
-        debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_diplomacy_snapshot\",\"section\":\"diplomacy\",\"field\":\"allies\",\"value\":null,\"availability\":\"unavailable\",\"reason\":\"no_json_safe_collection_serializer\",\"modVersion\":\"0.4.0\",\"status\":\"observed\"}"
+        debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_diplomacy_snapshot\",\"section\":\"diplomacy\",\"field\":\"relations\",\"value\":null,\"availability\":\"unavailable\",\"reason\":\"no_json_safe_collection_serializer\",\"modVersion\":\"0.5.0\",\"status\":\"observed\"}"
+        debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_diplomacy_snapshot\",\"section\":\"diplomacy\",\"field\":\"allies\",\"value\":null,\"availability\":\"unavailable\",\"reason\":\"no_json_safe_collection_serializer\",\"modVersion\":\"0.5.0\",\"status\":\"observed\"}"
+        }
     }
 }
 
 eu5_control_debug_emit_military_snapshot = {
     effect = {
-        debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"military_snapshot\",\"procedure\":\"emit_military_snapshot\",\"section\":\"military\",\"modVersion\":\"0.4.0\",\"status\":\"acknowledged\",\"completeness\":\"partial\",\"observationJoinRequired\":true}"
+        root = {
+        save_temporary_scope_as = eu5_control_actor
+        debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"military_snapshot\",\"procedure\":\"emit_military_snapshot\",\"section\":\"military\",\"modVersion\":\"0.5.0\",\"status\":\"acknowledged\",\"completeness\":\"partial\",\"observationJoinRequired\":true}"
         debug_log = EU5_CONTROL_MILITARY_ARMY_SIZE_DISPLAY
         debug_log = EU5_CONTROL_MILITARY_NAVY_SIZE_DISPLAY
         debug_log = EU5_CONTROL_MILITARY_MANPOWER_DISPLAY
         if = {
             limit = { army_size > 0 }
-            debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_military_snapshot\",\"section\":\"military\",\"field\":\"hasArmy\",\"value\":true,\"availability\":\"available\",\"modVersion\":\"0.4.0\",\"status\":\"observed\"}"
+            debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_military_snapshot\",\"section\":\"military\",\"field\":\"hasArmy\",\"value\":true,\"availability\":\"available\",\"modVersion\":\"0.5.0\",\"status\":\"observed\"}"
         }
         else = {
-            debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_military_snapshot\",\"section\":\"military\",\"field\":\"hasArmy\",\"value\":false,\"availability\":\"available\",\"modVersion\":\"0.4.0\",\"status\":\"observed\"}"
+            debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_military_snapshot\",\"section\":\"military\",\"field\":\"hasArmy\",\"value\":false,\"availability\":\"available\",\"modVersion\":\"0.5.0\",\"status\":\"observed\"}"
         }
         if = {
             limit = { navy_size > 0 }
-            debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_military_snapshot\",\"section\":\"military\",\"field\":\"hasNavy\",\"value\":true,\"availability\":\"available\",\"modVersion\":\"0.4.0\",\"status\":\"observed\"}"
+            debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_military_snapshot\",\"section\":\"military\",\"field\":\"hasNavy\",\"value\":true,\"availability\":\"available\",\"modVersion\":\"0.5.0\",\"status\":\"observed\"}"
         }
         else = {
-            debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_military_snapshot\",\"section\":\"military\",\"field\":\"hasNavy\",\"value\":false,\"availability\":\"available\",\"modVersion\":\"0.4.0\",\"status\":\"observed\"}"
+            debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_military_snapshot\",\"section\":\"military\",\"field\":\"hasNavy\",\"value\":false,\"availability\":\"available\",\"modVersion\":\"0.5.0\",\"status\":\"observed\"}"
         }
         if = {
             limit = { can_raise_army_levies = yes }
-            debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_military_snapshot\",\"section\":\"military\",\"field\":\"canRaiseArmyLevies\",\"value\":true,\"availability\":\"available\",\"modVersion\":\"0.4.0\",\"status\":\"observed\"}"
+            debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_military_snapshot\",\"section\":\"military\",\"field\":\"canRaiseArmyLevies\",\"value\":true,\"availability\":\"available\",\"modVersion\":\"0.5.0\",\"status\":\"observed\"}"
         }
         else = {
-            debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_military_snapshot\",\"section\":\"military\",\"field\":\"canRaiseArmyLevies\",\"value\":false,\"availability\":\"available\",\"modVersion\":\"0.4.0\",\"status\":\"observed\"}"
+            debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_military_snapshot\",\"section\":\"military\",\"field\":\"canRaiseArmyLevies\",\"value\":false,\"availability\":\"available\",\"modVersion\":\"0.5.0\",\"status\":\"observed\"}"
         }
-        debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_military_snapshot\",\"section\":\"military\",\"field\":\"manpower\",\"value\":null,\"unit\":\"people\",\"availability\":\"unavailable\",\"reason\":\"no_json_safe_scalar_serializer\",\"modVersion\":\"0.4.0\",\"status\":\"observed\"}"
-        debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_military_snapshot\",\"section\":\"military\",\"field\":\"supplyStatus\",\"value\":null,\"availability\":\"unavailable\",\"reason\":\"requires_unit_scope_and_collection_serializer\",\"modVersion\":\"0.4.0\",\"status\":\"observed\"}"
+        debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_military_snapshot\",\"section\":\"military\",\"field\":\"manpower\",\"value\":null,\"unit\":\"people\",\"availability\":\"unavailable\",\"reason\":\"no_json_safe_scalar_serializer\",\"modVersion\":\"0.5.0\",\"status\":\"observed\"}"
+        debug_log = "EU5_CONTROL {\"schemaVersion\":\"eu5.control-log/v1\",\"recordType\":\"telemetry_fact\",\"procedure\":\"emit_military_snapshot\",\"section\":\"military\",\"field\":\"supplyStatus\",\"value\":null,\"availability\":\"unavailable\",\"reason\":\"requires_unit_scope_and_collection_serializer\",\"modVersion\":\"0.5.0\",\"status\":\"observed\"}"
+        }
     }
 }

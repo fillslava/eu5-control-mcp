@@ -17,6 +17,18 @@ const COMMON_PRECONDITIONS = Object.freeze([
   "The disposable test-session marker and expected mod/build manifest match."
 ]);
 
+const PANEL_INTERACTION_PRECONDITIONS = Object.freeze([
+  "A fresh screenshot observation is available.",
+  "Exactly one visible eu5.exe top-level window exists.",
+  "The EU5 Control panel is positively identified in that screenshot.",
+  "The debug console is positively observed as closed.",
+  "The exact enabled button label is visible in the fresh screenshot.",
+  "No stored coordinate or prior panel position is reused.",
+  "No modal dialog is present.",
+  "No text-entry field is focused.",
+  "The disposable test-session marker and expected mod/build manifest match."
+]);
+
 function deepFreeze(value) {
   if (!value || typeof value !== "object" || Object.isFrozen(value)) return value;
   for (const child of Object.values(value)) deepFreeze(child);
@@ -176,14 +188,50 @@ const PROCEDURES = Object.freeze({
       "No persistent visible EU5 Control opener exists; the panel was created through the debug console, which is out of scope."
   }),
 
+  dismiss_debug_console: procedure({
+    name: "dismiss_debug_console",
+    description:
+      "Dismiss the positively observed debug console with one reviewed Backquote key press.",
+    riskClass: "reversible",
+    allowedInitialScreens: ["*"],
+    preconditions: Object.freeze([
+      "A fresh screenshot observation is available.",
+      "Exactly one visible eu5.exe top-level window exists.",
+      "The debug console is positively observed as visible.",
+      "No arbitrary console text or command is entered.",
+      "The disposable test-session marker and expected mod/build manifest match."
+    ]),
+    targetSchema: {
+      type: "reviewed_single_key",
+      exactKey: "Backquote",
+      onlyWhenConsoleVisible: true,
+      keyPressCount: 1,
+      arbitraryKeysAccepted: false
+    },
+    expectedEvidence: {
+      kind: "console_state",
+      consoleVisible: false,
+      consoleClosed: true,
+      freshnessRequired: true
+    },
+    nonOperationalReason:
+      "The reviewed Backquote step requires positive console visibility and a direct Computer Use live-proof repetition before catalogue admission."
+  }),
+
   refresh_state: procedure({
     name: "refresh_state",
     description: "Request the fixed state-snapshot diagnostic record from the visible control panel.",
     allowedInitialScreens: ["control_panel"],
+    preconditions: PANEL_INTERACTION_PRECONDITIONS,
     targetSchema: {
       type: "visible_control",
       role: "button",
-      exactLabels: ["Emit state snapshot"]
+      exactLabels: ["Emit state snapshot"],
+      semanticLocatorRequired: true,
+      consoleClosedRequired: true,
+      freshScreenshotRequired: true,
+      storedCoordinatesAllowed: false,
+      panelPositionMayChange: true
     },
     expectedEvidence: {
       kind: "debug_record",
@@ -194,7 +242,7 @@ const PROCEDURES = Object.freeze({
       freshnessRequired: true
     },
     nonOperationalReason:
-      "The button was proven by a human click, but direct Computer Use activation has not been live-proven."
+      "Use the coordinate-free exact-label panel protocol; direct Computer Use activation still requires its live-proof repetitions before catalogue admission."
   }),
 
   open_capital: procedure({

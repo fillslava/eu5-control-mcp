@@ -22,10 +22,12 @@ Game speed remains explicitly unknown until a reviewed bridge export supplies
 it. Save checkpoints prove only that a file appeared or changed; they never
 populate country, economy, market, diplomacy, or military statistics.
 
-The server may also supply `currentObservations` from the fixed v0.4.0 partial
+The server may also supply `currentObservations` from the fixed v0.5.0 partial
 bridge. Its categorical facts, display-only country/date/economy/military
-strings, and explicitly unavailable facts appear only in a separate
-**Unverified observations** panel. They never populate the verified
+strings, and explicitly unavailable facts appear in clearly labeled
+**Fresh · unverified** observation cards beside each domain and in the
+consolidated **Unverified observations** panel. Observed country tags and
+display dates may label the header as observations, but they never populate the verified
 country header or statistic cards.
 
 The older before/after comparison remains available for explicitly supplied JSON

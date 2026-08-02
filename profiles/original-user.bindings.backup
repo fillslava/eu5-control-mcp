@@ -1,0 +1,6 @@
+version=4
+
+binding={
+	input_action="max_zoom_out"
+	scancode=43
+}

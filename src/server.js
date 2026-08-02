@@ -12,7 +12,11 @@ const { validateActionPreview } = require("./control/action-gate");
 const { COMMANDS, prepareNavigationCommand } = require("./control/navigation-commands");
 const {
   CLICK_PROCEDURES,
-  prepareClickNavigation
+  PANEL_BUTTON_PROCEDURES,
+  PANEL_PROCEDURE_ALIASES,
+  prepareClickNavigation,
+  preparePanelInteraction,
+  prepareConsoleDismiss
 } = require("./control/click-navigation-procedures");
 const { validateFreshNavigationObservation } = require("./control/command-gate");
 const { ControlProtocol } = require("./control/control-protocol");
@@ -40,6 +44,13 @@ const server = new McpServer({
 });
 
 const procedureNameSchema = z.enum(Object.keys(PROCEDURES));
+const panelProcedureNameSchema = z.enum([
+  ...Object.keys(PANEL_BUTTON_PROCEDURES),
+  ...Object.keys(PANEL_PROCEDURE_ALIASES)
+]);
+const panelButtonLabelSchema = z.enum(
+  [...new Set(Object.values(PANEL_BUTTON_PROCEDURES).map(({ exactLabel }) => exactLabel))]
+);
 const observedControlSchema = z.object({
   role: z.enum(["button", "tab"]),
   label: z.string().trim().min(1).max(128),
@@ -76,6 +87,20 @@ const controlObservationSchema = z.object({
     "alerts"
   ]),
   visibleControls: z.array(observedControlSchema).max(64)
+}).strict();
+const semanticScreenshotSchema = controlObservationSchema.extend({
+  screenshot: z.object({
+    reference: z.string().trim().min(1).max(512)
+  }).strict(),
+  screenId: z.enum(["control_panel", "debug_console"]),
+  consoleVisible: z.boolean(),
+  consoleClosed: z.boolean(),
+  visibleControls: z.array(z.object({
+    role: z.literal("button"),
+    label: panelButtonLabelSchema,
+    visible: z.boolean(),
+    enabled: z.boolean()
+  }).strict()).max(16)
 }).strict();
 const sha256Schema = z.string().regex(/^[a-f0-9]{64}$/);
 const lifecyclePreObservationSchema = z.object({
@@ -344,6 +369,58 @@ server.registerTool(
     content: [{
       type: "text",
       text: JSON.stringify(prepareClickNavigation(name, viewport), null, 2)
+    }]
+  })
+);
+
+server.registerTool(
+  "eu5_prepare_panel_interaction",
+  {
+    title: "Prepare one fixed EU5 Control panel interaction",
+    description:
+      "From a fresh screenshot observation, prepare one finite exact-label read-only panel click for external Computer Use. The console must be positively closed. No coordinate or UI input is accepted or executed.",
+    inputSchema: z.object({
+      name: panelProcedureNameSchema,
+      observation: semanticScreenshotSchema
+    }).strict(),
+    annotations: { readOnlyHint: true, destructiveHint: false }
+  },
+  async ({ name, observation }) => ({
+    content: [{
+      type: "text",
+      text: JSON.stringify({
+        executionPerformed: false,
+        externalExecutionRequired: true,
+        preparation: preparePanelInteraction(name, observation)
+      }, null, 2)
+    }]
+  })
+);
+
+server.registerTool(
+  "eu5_prepare_console_dismiss",
+  {
+    title: "Prepare the fixed EU5 debug-console dismissal step",
+    description:
+      "Prepare exactly one reviewed Backquote key press for external Computer Use, only when a fresh screenshot positively shows the debug console. No console text, arbitrary key, or macro is accepted or executed.",
+    inputSchema: z.object({
+      observation: semanticScreenshotSchema.extend({
+        screenId: z.literal("debug_console"),
+        consoleVisible: z.literal(true),
+        consoleClosed: z.literal(false),
+        visibleControls: z.array(z.never()).max(0)
+      }).strict()
+    }).strict(),
+    annotations: { readOnlyHint: true, destructiveHint: false }
+  },
+  async ({ observation }) => ({
+    content: [{
+      type: "text",
+      text: JSON.stringify({
+        executionPerformed: false,
+        externalExecutionRequired: true,
+        preparation: prepareConsoleDismiss(observation)
+      }, null, 2)
     }]
   })
 );

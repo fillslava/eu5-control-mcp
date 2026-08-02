@@ -38,6 +38,28 @@ bundle, ledger, or report. Executable declarations fail closed when the
 rehearsal session binding is absent. Use a new data directory for every
 rehearsal: an existing malformed or differently bound ledger is rejected.
 
+The trusted-shell helpers emit strict JSON artifacts for the MCP calls:
+
+```powershell
+node .\scripts\approve-euv-action.js `
+  --data-dir $env:EU5_CONTROL_DATA_DIR `
+  --declaration-id <declaration-uuid> `
+  --expires-at <short-lived-canonical-UTC>
+
+node .\scripts\verify-euv-action.js `
+  --data-dir $env:EU5_CONTROL_DATA_DIR `
+  --outcome-id <outcome-uuid> `
+  --confirm-result "<exact visible result>" `
+  --evidence-sha256 <independently-computed-sha256>
+```
+
+The approval helper reads all session-binding fields from the hash-linked
+declaration and refuses inconsistent campaign or pre-observation bindings. The
+verifier helper signs only an acknowledged, conclusive outcome whose exact
+visible result matches the declaration and whose supplied evidence digest
+matches the ledger. The signing secrets stay in the local environment and are
+never included in stdout, stderr, the ledger, or dashboard records.
+
 ## Production capture
 
 `StreamRehearsalCollector` in `src/stream/rehearsal-collector.js` is the
@@ -81,7 +103,7 @@ The capture-session file has this bounded shape:
     "campaignId": "holland-stream-test",
     "countryId": "HOL",
     "gameBuild": "1.0.2",
-    "modVersion": "0.4.0",
+    "modVersion": "0.5.0",
     "modManifestSha256": "64 lowercase hex characters",
     "seedSaveSha256": "64 lowercase hex characters"
   },
@@ -122,7 +144,7 @@ SHA-256 values.
     "campaignId": "holland-stream-test",
     "countryId": "HOL",
     "gameBuild": "1.0.2",
-    "modVersion": "0.4.0",
+    "modVersion": "0.5.0",
     "modManifestSha256": "64 lowercase hex characters",
     "seedSaveSha256": "64 lowercase hex characters"
   }
@@ -191,7 +213,7 @@ are bound to the ID, manifest hash, and generation time of the final validated
 live-feed snapshot. An earlier healthy snapshot cannot carry status into a
 later unhealthy feed.
 
-The current v0.4.0 mod emits partial, unverified display-oriented observations.
+The current v0.5.0 mod emits partial, unverified display-oriented observations.
 They remain visible in `currentObservations`, but they do not become
 `nation_snapshot` records and cannot satisfy stream readiness. A separate
 verified typed producer is required for numeric nation statistics.

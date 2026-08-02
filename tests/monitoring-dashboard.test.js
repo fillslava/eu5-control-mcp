@@ -521,7 +521,100 @@ test("partial observations remain visibly unverified and never populate statisti
   );
   assert.equal(view.observations.length, 2);
   assert.equal(view.observations[0].value, "non_negative");
+  assert.equal(
+    view.observationGroups.find((group) => group.name === "Economy")
+      .observations.length,
+    2
+  );
   assert.equal(view.metrics.find((metric) => metric.id === "treasury").status, "unknown");
+});
+
+test("fresh nation and market observations are prominent without becoming verified state", () => {
+  const observations = {
+    status: "partial",
+    country: null,
+    gameDate: null,
+    domains: {
+      nation: {
+        captureGroupId: "nation-1",
+        updatedAtUtc: "2026-07-26T20:02:40.000Z",
+        fields: {
+          countryTag: { value: "HOL", availability: "available" },
+          gameDateDisplay: { value: "12 May, 1337", availability: "available" }
+        }
+      },
+      markets: {
+        captureGroupId: "markets-1",
+        updatedAtUtc: "2026-07-26T20:02:41.000Z",
+        fields: {
+          capitalMarketNameDisplay: {
+            value: "Amsterdam Market",
+            availability: "available"
+          },
+          capitalLocationMarketAccessDisplay: {
+            value: "92.50",
+            availability: "available"
+          },
+          monthlyFoodBalanceDisplay: {
+            value: "+4.25",
+            availability: "available"
+          },
+          maxFoodStockpileDisplay: {
+            value: "200.00",
+            availability: "available"
+          },
+          marketCount: {
+            value: null,
+            availability: "unavailable",
+            unit: "markets",
+            reason: "no_json_safe_collection_serializer"
+          }
+        }
+      }
+    }
+  };
+  const view = buildHumanMonitoringView(
+    buildLiveMonitoringModel(liveFeed([], {
+      status: "unavailable",
+      country: null,
+      gameDate: null,
+      paused: null,
+      updatedAtUtc: null,
+      domains: {},
+      warnings: []
+    }, observations))
+  );
+
+  assert.equal(view.country, "Observed tag HOL");
+  assert.equal(view.gameDate, "Observed 12 May, 1337");
+  assert.equal(view.nationVerification, "unverified");
+  const markets = view.observationGroups.find((group) => group.name === "Markets");
+  assert.deepEqual(
+    markets.observations.map((observation) => [
+      observation.fieldLabel,
+      observation.value,
+      observation.availability
+    ]),
+    [
+      ["Capital location market access", "92.50", "available"],
+      ["Capital market", "Amsterdam Market", "available"],
+      ["Maximum food stockpile", "200.00", "available"],
+      ["Monthly food balance", "+4.25", "available"],
+      ["Market count", "Unavailable", "unavailable"]
+    ]
+  );
+  assert.equal(
+    view.metrics.find((metric) => metric.id === "marketAccess").status,
+    "unknown"
+  );
+  assert.equal(
+    view.metrics.find((metric) => metric.id === "food").status,
+    "unknown"
+  );
+
+  const html = fs.readFileSync(path.join(__dirname, "..", "dashboard", "index.html"), "utf8");
+  assert.match(html, /id="markets-observations"/);
+  assert.match(html, /Fresh unverified market observations/);
 });
 
 test("stream summary exposes objectives, latency, unknown outcomes, bridge health and checkpoint metadata", () => {

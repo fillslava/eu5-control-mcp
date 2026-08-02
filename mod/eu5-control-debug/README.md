@@ -23,22 +23,33 @@ JSON object using schema `eu5.control-log/v1`. It contains the fixed procedure,
 mod version, `status: "acknowledged"`, and
 `observationJoinRequired: true`.
 
-Version 0.4.0 adds only read-only telemetry and panel-health presentation. The
+Version 0.5.0 adds only read-only telemetry and panel-health presentation. The
 locally generated EU5 1.3.11 script documentation and shipped game scripts
 confirm the country-scope triggers used here: `at_war`, `is_subject`,
-`monthly_balance`, `gold`, `has_markets`, `army_size`, `navy_size`, and
+`monthly_balance`, `gold`, `army_size`, `navy_size`, and
 `can_raise_army_levies`. These yield categorical facts such as `atWar`,
 `monthlyBalanceClass`, and `hasArmy`. Each fact is its own `telemetry_fact`
 record so the consumer never has to parse localized prose.
 
-EU5's generated effect documentation also explicitly permits `debug_log` to
-resolve a localization key with `ROOT`, `SCOPE`, and `PREV`. Version 0.4.0 uses
-nine fixed localization keys to expose real, read-only display strings:
+Version 0.5.0 uses eighteen fixed localization keys to expose real, read-only display strings.
+Live EU5 1.3.11 testing showed that synchronous `debug_log`
+localization has no GUI data context, so `[GetPlayer...]`, `[Player...]`, and
+`[InGameTopbar...]` can resolve an empty/default country or fail outright. Each
+country telemetry procedure now binds its effect root with
+`save_temporary_scope_as = eu5_control_actor`; reviewed localization reads it
+through `[SCOPE.sCountry('eu5_control_actor')...]`. The game date remains
+`[GetDateString]`. Navy strength uses `GetNavySizeValue`, not the
+percentage-oriented `GetNavySize` display.
+The identical reviewed templates are shipped for both English and Russian
+game-language modes; otherwise EU5 logs the unresolved key name literally:
 
 - nation: `countryTag` and `gameDateDisplay`;
 - economy: `estimatedMonthlyIncomeDisplay`,
   `estimatedTradeTaxIncomeDisplay`, `treasuryDisplay`, and
   `monthlyBalanceDisplay`;
+- markets: the capital location's market ID, name, access, monthly food
+  balance, food stockpile, stockpile percentage, food price, and total value
+  traded;
 - military: `armySizeDisplay`, `navySizeDisplay`, and `manpowerDisplay`.
 
 The corresponding getters are present in the locally generated GUI data-type
@@ -48,25 +59,32 @@ numbers, timestamps, or verified campaign identity. They must never populate
 typed metrics, trends, or `currentState` without separate trusted evidence.
 
 The generated documentation still does not expose a JSON-safe canonical
-numeric or collection serializer for `debug_log`. Treasury and monthly balance
-can therefore be emitted only as localized display strings; their canonical
-numeric fields remain unavailable. Market lists, food, shortages, relations,
-allies, and supply remain `value: null`, `availability: "unavailable"`, with a
-machine-readable reason in this schema. EU5 does expose typed iterators for
-future bounded row records, but those require a separate reviewed schema and
-live proof. The mod must not invent syntax or present those values as observed.
-Country name likewise remains unavailable.
+numeric or collection serializer for `debug_log`. Treasury, monthly balance,
+and capital-market values are therefore emitted as localized display strings;
+their canonical numeric fields remain unavailable. Full market lists,
+shortages, relations, allies, and supply remain `value: null`,
+`availability: "unavailable"`, with a machine-readable reason in this schema.
+EU5 does expose typed iterators for future bounded row records, but those
+require a separate reviewed schema and live proof. The mod must not invent
+syntax or present those values as observed. Country name likewise remains
+unavailable.
 
-Live testing against EU5 1.3.11 showed that putting
-`[ROOT.GetNameWithNoTooltip]` or `[GetDateString]` directly inside a quoted
-`debug_log` value causes a `pdx_data_localize Data error`; it does not produce a
-usable record. Version 0.4.0 does not repeat that invalid form: it passes only
+Live testing against EU5 1.3.11 showed that putting a dynamic localization
+expression such as `[GetDateString]` directly inside a quoted `debug_log` value
+causes a `pdx_data_localize Data error`; it does not produce a usable record.
+Version 0.5.0 does not repeat that invalid form: it passes only
 fixed localization keys, which is the documented effect syntax. The
 script-effect API also documents no pause-state trigger. The external
 collector must retain source and verification status and obtain pause state
 from a fresh independent observation. The panel itself may show live
 country/date and paused/running status because those functions are supported
 in GUI expressions.
+
+The engine may buffer new `debug_log` output while the campaign is paused.
+After pressing an export button, the collector must treat the result as
+pending until a fresh matching record appears. A later game tick may flush the
+record; absence of an immediate disk write is not an acknowledgement and must
+never trigger an automatic retry.
 
 The panel visibly identifies the mod version, disposable test-session
 restriction, bridge-loaded state, current country/date, and paused/running
@@ -92,7 +110,9 @@ invocation sequence is:
    `loading_screen/input_profile/default.profile`.
 3. Enter
    `GUI.CreateWidget gui/eu5_control_debug.gui eu5_control_debug_window`.
-4. Visually verify the `EU5 Control Debug` panel before pressing a button.
+4. Press the console toggle again so the console is visibly closed.
+5. Visually locate the movable `EU5 Control Debug` panel by its title before
+   pressing an exact-labelled button. Never reuse stored screen coordinates.
 
 Creation is reliable in a `-debug_mode` test session. Once created, the panel
 remains movable and all eight fixed controls remain directly reachable until
@@ -126,7 +146,7 @@ but no equivalent create/attach function callable from a normal GUI
 expression. The shipped five-line `gui/common_topbar.gui` is a hidden,
 hard-coded placeholder and could theoretically be shadowed by a mod, but its
 load lifecycle is undocumented. Replacing even that small base file would add
-game-version and mod-conflict risk without runtime proof, so version 0.4.0
+game-version and mod-conflict risk without runtime proof, so version 0.5.0
 deliberately does not ship a `common_topbar.gui` override. That candidate
 remains quarantined until a disposable-session rehearsal and independent
 review prove attachment, removal, and compatibility.

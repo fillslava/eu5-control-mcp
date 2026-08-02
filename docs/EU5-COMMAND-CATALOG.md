@@ -10,10 +10,12 @@ accepted an input.
 The machine-readable authoritative catalogue is
 `src/control/control-procedure-catalog.js` with schema identifier
 `eu5.control-procedure-catalog/v1`. It contains only named procedures:
-`focus_game`, `pause`, `open_control_panel`, `refresh_state`, `open_capital`,
-`economy`, `markets`, `diplomacy`, `military`, `alerts`, `back`, and `close`.
+`focus_game`, `pause`, `open_control_panel`, `dismiss_debug_console`,
+`refresh_state`, `open_capital`, `economy`, `markets`, `diplomacy`, `military`,
+`alerts`, `back`, and `close`.
 Every entry fixes its target type, expected evidence, risk class, one-use
-authorization, and idempotency rules. In v1 every entry is a disabled candidate:
+authorization, and idempotency rules. In v1 every authoritative catalogue
+entry is a disabled candidate:
 `dispatch` is `null`, `operationalStatus` is
 `candidate_requires_live_proof`, and `nonOperationalReason` records the
 missing proof.
@@ -25,10 +27,51 @@ Missing acknowledgement or an inconclusive post-state would be
 `execution_unknown` for a future admitted route; current disabled candidates
 are rejected before dispatch or outcome verification.
 
-The catalogue currently returns no dispatch metadata. It does not authorize
-MCP-to-MCP calls, clicks, typing, console text, effects, coordinates, or
-macros. A route may gain fixed direct Computer Use metadata only after three
-clean live repetitions and independent review.
+The authoritative catalogue gate currently returns no dispatch metadata. Its
+disabled status is not changed by the two semantic top-level MCP preparation
+tools described below: those tools return bounded candidate instructions for
+an external supervised executor, not catalogue admission or UI execution.
+Neither surface authorizes MCP-to-MCP calls, arbitrary clicks, typing, console
+text, effects, coordinates, or macros. A route may gain fixed direct Computer
+Use metadata only after three clean live repetitions and independent review.
+
+The semantic preparation helpers in
+`src/control/click-navigation-procedures.js` never contain or return stored
+coordinates. They are reachable through the finite read-only MCP tools
+`eu5_prepare_panel_interaction` and `eu5_prepare_console_dismiss`. The tools
+prepare external Computer Use steps but never execute UI input. A panel click
+is prepared only from the exact enabled label found in the current fresh
+screenshot. A panel may move anywhere in the EU5 window; its old bounds are
+irrelevant and must not be reused. Both tools enforce the same bounded
+control-observation safety context as the authoritative gate: exactly one
+matching visible EU5 window, confirmed foreground focus, no modal, no focused
+text-entry field, and matching disposable test marker, reviewed game build,
+and reviewed mod manifest.
+
+### Movable EU5 Control panel protocol
+
+Before any fixed read-only panel button is prepared:
+
+1. Capture a new screenshot of the unique focused EU5 window.
+2. Positively identify the visible `EU5 Control Debug` panel.
+3. Positively observe that the debug console is closed
+   (`consoleVisible=false`, `consoleClosed=true`).
+4. Locate the exact enabled button label in that screenshot.
+5. Use only the semantic visible-control locator from that observation.
+6. Capture fresh post-action evidence and verify the expected debug record.
+
+The finite read-only labels are `Emit ping`, `Emit player scope`,
+`Emit state snapshot`, `Export nation summary`, `Export economy`,
+`Export capital market`, `Export diplomacy`, and `Export military`.
+No generic label, arbitrary text, console command, coordinate, or key macro is
+accepted.
+
+If the console is positively observed as visible, the only named dismissal
+step is `dismiss_debug_console`: one reviewed `Backquote` key press. It cannot
+be prepared when console visibility is false or unknown. After that key press,
+capture a new screenshot and positively verify that the console is closed
+before preparing a panel button. Never combine dismissal and clicking into one
+macro, and never retry either step automatically.
 
 ## Current input status (2026-07-26)
 
@@ -46,10 +89,11 @@ returns no click procedure.
 
 | Candidate family | Current status |
 |---|---|
-| Top-level panel clicks | Disabled; coordinates withheld. |
+| Top-level game navigation clicks | Disabled legacy viewport metadata only; `eu5_prepare_click_navigation` stores and returns no coordinates or dispatch. |
 | Ctrl+function-key bindings | Disabled for programmatic input; physical-key observations do not prove Computer Use delivery. |
 | EU5 Control panel opener | Disabled; no persistent visible opener exists. |
-| EU5 Control panel buttons | Disabled for Computer Use; the snapshot button was proven only by a human click. |
+| Debug-console dismissal | Top-level MCP can prepare one named `Backquote` candidate only after the full safe observation and positive console-visible state; catalogue admission is still pending live proof. |
+| EU5 Control panel buttons | Top-level MCP can prepare an exact-label candidate only after the full safe observation, a fresh screenshot, and positively closed console; catalogue admission is still pending live proof. |
 
 ### Verified inner route
 

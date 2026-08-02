@@ -687,6 +687,60 @@
     { id: "navyStrength", label: "Navy strength", group: "Military", domain: "military", keys: ["navyStrength", "navySize"] },
     { id: "trackedArmies", label: "Tracked armies", group: "Military", domain: "military", collection: "armies", aggregate: "count", unit: "armies" }
   ]);
+  const OBSERVATION_DOMAIN_LABELS = Object.freeze({
+    nation: "Nation",
+    economy: "Economy",
+    markets: "Markets",
+    diplomacy: "Diplomacy",
+    military: "Military"
+  });
+  const OBSERVATION_FIELD_LABELS = Object.freeze({
+    atWar: "At war",
+    isSubject: "Subject nation",
+    countryTag: "Country tag",
+    gameDateDisplay: "Game date",
+    countryName: "Country name",
+    gameDate: "Canonical game date",
+    estimatedMonthlyIncomeDisplay: "Estimated monthly income",
+    estimatedTradeTaxIncomeDisplay: "Estimated trade-tax income",
+    treasuryDisplay: "Treasury",
+    monthlyBalanceDisplay: "Monthly balance",
+    monthlyBalanceClass: "Monthly balance status",
+    treasuryClass: "Treasury status",
+    monthlyBalance: "Monthly balance (numeric)",
+    treasury: "Treasury (numeric)",
+    monthlyIncomeTotal: "Monthly income (numeric)",
+    hasMarketCenters: "Market centers detected",
+    marketCount: "Market count",
+    foodStockpile: "Food stockpile",
+    capitalMarketIdDisplay: "Capital market ID",
+    capitalMarketNameDisplay: "Capital market",
+    capitalLocationMarketAccessDisplay: "Capital location market access",
+    monthlyFoodBalanceDisplay: "Monthly food balance",
+    foodStockpileDisplay: "Food stockpile",
+    maxFoodStockpileDisplay: "Maximum food stockpile",
+    foodStockpilePercentDisplay: "Food stockpile capacity",
+    foodPriceDisplay: "Food price",
+    totalValueTradedDisplay: "Total value traded",
+    shortages: "Shortages",
+    relations: "Relations",
+    allies: "Allies",
+    hasArmy: "Army present",
+    hasNavy: "Navy present",
+    canRaiseArmyLevies: "Can raise army levies",
+    armySizeDisplay: "Army size",
+    navySizeDisplay: "Navy size",
+    manpowerDisplay: "Manpower",
+    manpower: "Manpower (numeric)",
+    supplyStatus: "Supply status"
+  });
+  const OBSERVATION_DOMAIN_ORDER = Object.freeze([
+    "nation",
+    "economy",
+    "markets",
+    "diplomacy",
+    "military"
+  ]);
 
   function displayMetricValue(value) {
     if (value === MISSING) return "No verified data";
@@ -1080,28 +1134,72 @@
           if (!isPlainObject(observation)) continue;
           observations.push({
             domain,
+            domainLabel: OBSERVATION_DOMAIN_LABELS[domain] || domain,
             field,
+            fieldLabel: OBSERVATION_FIELD_LABELS[field] || field,
             value: observation.availability === "available"
               ? displayMetricValue(observation.value)
               : "Unavailable",
             availability: observation.availability || "unknown",
             reason: observation.reason || null,
-            unit: observation.unit || null
+            unit: observation.unit || null,
+            updatedAtUtc:
+              typeof detail.updatedAtUtc === "string" ? detail.updatedAtUtc : null
           });
         }
       }
     }
+    observations.sort((left, right) => {
+      const domainDifference =
+        OBSERVATION_DOMAIN_ORDER.indexOf(left.domain) -
+        OBSERVATION_DOMAIN_ORDER.indexOf(right.domain);
+      if (domainDifference) return domainDifference;
+      if (left.availability !== right.availability) {
+        return left.availability === "available" ? -1 : 1;
+      }
+      return left.fieldLabel.localeCompare(right.fieldLabel);
+    });
+    const observedNation = Object.fromEntries(
+      observations
+        .filter((observation) =>
+          observation.domain === "nation" &&
+          observation.availability === "available"
+        )
+        .map((observation) => [observation.field, observation.value])
+    );
+    const hasObservedNationContext = Object.keys(observedNation).length > 0;
+    const observationGroups = OBSERVATION_DOMAIN_ORDER
+      .filter((domain) => domain !== "nation")
+      .map((domain) => ({
+        name: OBSERVATION_DOMAIN_LABELS[domain],
+        domain,
+        observations: observations.filter((observation) =>
+          observation.domain === domain
+        )
+      }));
 
     return {
       isLive: model.isLive === true,
       generatedAtUtc: model.bundle.generatedAtUtc,
-      country: current ? `${current.country.name} (${current.country.tag})` : "Country unknown",
-      gameDate: current && current.gameDate ? current.gameDate : "Date unknown",
+      country: current
+        ? `${current.country.name} (${current.country.tag})`
+        : observedNation.countryTag
+          ? `Observed tag ${observedNation.countryTag}`
+          : "Country unknown",
+      gameDate: current && current.gameDate
+        ? current.gameDate
+        : observedNation.gameDateDisplay
+          ? `Observed ${observedNation.gameDateDisplay}`
+          : "Date unknown",
       pause: current && typeof current.paused === "boolean"
         ? current.paused ? "Paused" : "Running"
         : "Pause unknown",
       speed: "Speed unknown",
-      nationVerification: current ? "verified" : "unknown",
+      nationVerification: current
+        ? "verified"
+        : hasObservedNationContext
+          ? "unverified"
+          : "unknown",
       objective: {
         current: operations.currentObjective,
         detail: operations.objectiveDetail,
@@ -1126,6 +1224,7 @@
       health,
       alerts,
       observations,
+      observationGroups,
       timeline: records
         .filter((record) =>
           ["llm_action_proposed", "llm_action_outcome", "game_event"].includes(record.recordType)
@@ -1385,6 +1484,34 @@
     }
   }
 
+  function renderObservationCards(documentRef, container, observations) {
+    container.replaceChildren();
+    for (const observation of observations) {
+      const article = documentRef.createElement("article");
+      article.className =
+        `observation-card observation-card-${observation.availability}`;
+      const label = documentRef.createElement("span");
+      label.className = "observation-card-label";
+      setText(label, observation.fieldLabel);
+      const value = documentRef.createElement("strong");
+      value.className = "observation-card-value";
+      setText(
+        value,
+        `${observation.value}${observation.unit ? ` ${observation.unit}` : ""}`
+      );
+      const source = documentRef.createElement("span");
+      source.className = "observation-card-source";
+      setText(
+        source,
+        observation.availability === "available"
+          ? "Fresh bridge observation · unverified"
+          : `Not exported · ${(observation.reason || "unknown reason").replaceAll("_", " ")}`
+      );
+      article.append(label, value, source);
+      container.appendChild(article);
+    }
+  }
+
   function renderHumanMonitoringView(documentRef, elements, model) {
     const view = buildHumanMonitoringView(model);
     setText(elements.countryName, view.country);
@@ -1393,7 +1520,11 @@
     setText(elements.gameSpeed, view.speed);
     setBadge(
       elements.nationTrust,
-      view.nationVerification === "verified" ? "Verified nation data" : "Nation data unknown",
+      view.nationVerification === "verified"
+        ? "Verified nation data"
+        : view.nationVerification === "unverified"
+          ? "Fresh unverified bridge observations"
+          : "Nation data unknown",
       view.nationVerification
     );
     setText(elements.currentObjective, view.objective.current);
@@ -1420,8 +1551,19 @@
       Diplomacy: elements.diplomacyCards,
       Military: elements.militaryCards
     };
+    const observationContainers = {
+      Economy: elements.economyObservations,
+      Markets: elements.marketsObservations,
+      Diplomacy: elements.diplomacyObservations,
+      Military: elements.militaryObservations
+    };
     for (const group of view.groups) {
       renderHumanMetricCards(documentRef, containers[group.name], group.metrics);
+    }
+    for (const group of view.observationGroups) {
+      const container = observationContainers[group.name];
+      renderObservationCards(documentRef, container, group.observations);
+      container.parentElement.hidden = group.observations.length === 0;
     }
 
     elements.humanAlerts.replaceChildren();
@@ -1438,7 +1580,7 @@
       const item = documentRef.createElement("li");
       item.className = "observation-item";
       const title = documentRef.createElement("strong");
-      setText(title, `${observation.domain}: ${observation.field}`);
+      setText(title, `${observation.domainLabel}: ${observation.fieldLabel}`);
       const value = documentRef.createElement("span");
       setText(
         value,
@@ -1646,6 +1788,10 @@
       marketsCards: documentRef.getElementById("markets-cards"),
       diplomacyCards: documentRef.getElementById("diplomacy-cards"),
       militaryCards: documentRef.getElementById("military-cards"),
+      economyObservations: documentRef.getElementById("economy-observations"),
+      marketsObservations: documentRef.getElementById("markets-observations"),
+      diplomacyObservations: documentRef.getElementById("diplomacy-observations"),
+      militaryObservations: documentRef.getElementById("military-observations"),
       humanTimeline: documentRef.getElementById("human-timeline"),
       humanHealth: documentRef.getElementById("human-health")
     };
