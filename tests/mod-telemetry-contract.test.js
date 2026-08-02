@@ -15,6 +15,12 @@ const SCRIPTED_GUI_PATH = path.join(
   "scripted_guis",
   "eu5_control_debug.txt"
 );
+const GUI_PATH = path.join(
+  MOD_ROOT,
+  "in_game",
+  "gui",
+  "eu5_control_debug.gui"
+);
 const LOCALIZATION_PATH = path.join(
   MOD_ROOT,
   "in_game",
@@ -33,7 +39,8 @@ const LOCALIZATION_PATHS = [
   )
 ];
 const EXPECTED_LOCALIZATION_VALUES = Object.freeze({
-  EU5_CONTROL_NATION_COUNTRY_TAG: "[SCOPE.sCountry('eu5_control_actor').GetTag]",
+  EU5_CONTROL_NATION_COUNTRY_TAG:
+    "[SCOPE.sCountry('eu5_control_actor').GetTag]",
   EU5_CONTROL_NATION_GAME_DATE_DISPLAY: "[GetDateString]",
   EU5_CONTROL_ECONOMY_ESTIMATED_MONTHLY_INCOME_DISPLAY:
     "[SCOPE.sCountry('eu5_control_actor').GetEstimatedMonthlyIncome|2]",
@@ -272,16 +279,34 @@ test("localization producers are fixed read-only templates with documented gette
   );
 });
 
-test("log localization uses the temporary scripted country scope without control-code formatters", () => {
+test("nation summary receives an explicit GUI saved scope while other exporters retain their current bridge", () => {
   const scriptedGui = source();
-  const scopedProcedures = [
-    "emit_player_summary",
+  const gui = fs.readFileSync(GUI_PATH, "utf8");
+  const playerSummary = procedureBody(scriptedGui, "emit_player_summary");
+  assert.match(
+    gui,
+    /GetScriptedGui\('eu5_control_debug_emit_player_summary'\)\.Execute\(GuiScope\.SetRoot\(GetPlayer\.MakeScope\)\.AddScope\('eu5_control_actor', GetPlayer\.MakeScope\)\.End\)/,
+    "nation-summary GUI dispatch must pass the player country as a named scope"
+  );
+  assert.match(
+    playerSummary,
+    /saved_scopes\s*=\s*\{\s*eu5_control_actor\s*\}/,
+    "nation summary must declare the GUI-provided saved scope"
+  );
+  assert.match(
+    playerSummary,
+    /effect\s*=\s*\{\s*scope:eu5_control_actor\s*=\s*\{/,
+    "nation summary must execute inside the explicit country scope"
+  );
+  assert.doesNotMatch(playerSummary, /save_temporary_scope_as|\broot\s*=/);
+
+  const legacyScopedProcedures = [
     "emit_economy_snapshot",
     "emit_markets_snapshot",
     "emit_diplomacy_snapshot",
     "emit_military_snapshot"
   ];
-  for (const procedure of scopedProcedures) {
+  for (const procedure of legacyScopedProcedures) {
     assert.match(
       procedureBody(scriptedGui, procedure),
       /effect\s*=\s*\{\s*root\s*=\s*\{/,
@@ -300,10 +325,10 @@ test("log localization uses the temporary scripted country scope without control
       /\[GetPlayer\./,
       `${localizationPath} must not call GetPlayer from synchronous log localization`
     );
-    assert.doesNotMatch(
+    assert.match(
       localized,
-      /\[ROOT\./,
-      `${localizationPath} must not resolve ROOT from synchronous log localization`
+      /\[SCOPE\.sCountry\('eu5_control_actor'\)\.GetTag\]/,
+      `${localizationPath} must resolve the country tag from the explicit GUI saved scope`
     );
     assert.match(
       localized,
@@ -460,6 +485,8 @@ test("telemetry effects use only reviewed read-only control flow and triggers", 
     "eu5_control_debug_emit_state_snapshot",
     ...Object.keys(EXPECTED).map((name) => "eu5_control_debug_" + name),
     "effect",
+    "saved_scopes",
+    "eu5_control_actor",
     "root",
     "save_temporary_scope_as",
     "if",

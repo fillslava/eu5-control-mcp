@@ -98,11 +98,25 @@ test("static debug panel exposes exactly eight fixed procedure buttons and one b
   assert.doesNotMatch(panel, /guiTypes|windowType|buttonType|textBoxType|width\s*=|height\s*=|moveable\s*=/);
   for (const procedure of PROCEDURES) {
     assert.match(panel, new RegExp("name\\s*=\\s*\\\"" + procedure + "\\\""));
+    const guiScope = procedure === "emit_player_summary"
+      ? "GuiScope\\.SetRoot\\(GetPlayer\\.MakeScope\\)" +
+        "\\.AddScope\\('eu5_control_actor', GetPlayer\\.MakeScope\\)\\.End"
+      : "GuiScope\\.SetRoot\\(GetPlayer\\.MakeScope\\)\\.End";
     assert.match(panel, new RegExp(
       "GetScriptedGui\\('eu5_control_debug_" + procedure +
-      "'\\)\\.Execute\\(GuiScope\\.SetRoot\\(GetPlayer\\.MakeScope\\)\\.End\\)"
+      "'\\)\\.Execute\\(" + guiScope + "\\)"
     ));
   }
+  assert.equal(
+    [...panel.matchAll(/\.AddScope\(/g)].length,
+    1,
+    "only the nation-summary button may pass one reviewed named scope"
+  );
+  assert.match(
+    panel,
+    /\.AddScope\('eu5_control_actor', GetPlayer\.MakeScope\)/,
+    "the fixed named scope must carry only the player country"
+  );
   assert.equal(
     [...panel.matchAll(/\bGetScriptedGui\('/g)].length,
     PROCEDURES.length + 1,
@@ -144,7 +158,14 @@ test("procedures use the vanilla minimal shape and emit only recognized structur
     assert.doesNotMatch(definition[1], /\bscope\s*=/);
     assert.doesNotMatch(definition[1], /\bis_shown\s*=/);
     assert.doesNotMatch(definition[1], /\bis_valid\s*=/);
-    assert.match(definition[1], /^\s*effect\s*=\s*\{/);
+    if (procedure === "emit_player_summary") {
+      assert.match(definition[1], /^\s*saved_scopes\s*=\s*\{\s*eu5_control_actor\s*\}\s*effect\s*=\s*\{/);
+      assert.equal([...definition[1].matchAll(/\bscope:eu5_control_actor\s*=\s*\{/g)].length, 1);
+    } else {
+      assert.match(definition[1], /^\s*effect\s*=\s*\{/);
+      assert.doesNotMatch(definition[1], /\bsaved_scopes\s*=/);
+      assert.doesNotMatch(definition[1], /\bscope:[a-z0-9_]+\s*=/i);
+    }
     const logMatches = [...definition[1].matchAll(/\bdebug_log\s*=\s*"((?:\\"|[^"])*)"/gs)];
     assert.ok(logMatches.length > 0, "missing structured debug_log for " + procedure);
     for (const logMatch of logMatches) {
@@ -161,6 +182,21 @@ test("procedures use the vanilla minimal shape and emit only recognized structur
       assert.doesNotMatch(line, /\[(?:ROOT|GetDateString)/);
     }
   }
+  assert.equal(
+    [...script.matchAll(/\bsaved_scopes\s*=\s*\{\s*eu5_control_actor\s*\}/g)].length,
+    1,
+    "only nation summary may register the fixed player-country scope"
+  );
+  assert.equal(
+    [...script.matchAll(/\bsaved_scopes\s*=/g)].length,
+    1,
+    "arbitrary saved-scope registrations are forbidden"
+  );
+  assert.equal(
+    [...script.matchAll(/\bscope:eu5_control_actor\s*=\s*\{/g)].length,
+    1,
+    "the reviewed player-country scope may be entered only once"
+  );
   const referencedLocalizationKeys = [
     ...script.matchAll(/\bdebug_log\s*=\s*(EU5_CONTROL_[A-Z0-9_]+)/g)
   ].map((match) => match[1]);
@@ -191,7 +227,8 @@ test("scaffold documents bounded debug installation and only the fixed opener", 
   assert.match(readme, /observationJoinRequired/);
   assert.match(readme, /pdx_data_localize Data error/);
   assert.match(readme, /does not handle the `on_start` callback/);
-  assert.match(readme, /contains only `effect = \{ \.\.\. \}`/);
+  assert.match(readme, /all entries except nation summary contain only\s+`effect = \{ \.\.\. \}`/);
+  assert.match(readme, /one fixed `saved_scopes = \{ eu5_control_actor \}` registration/);
   assert.match(readme, /hidden one-shot GUI animation runs `emit_ping`/);
   assert.match(readme, /eighteen fixed localization keys to expose real, read-only display strings/);
   assert.match(readme, /must never populate\s+typed metrics, trends, or `currentState`/);

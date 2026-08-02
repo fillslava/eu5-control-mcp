@@ -39,7 +39,7 @@ nation-summary button now passes the player country explicitly with
 `GuiScope.AddScope('eu5_control_actor', GetPlayer.MakeScope)`. Its scripted GUI
 declares `saved_scopes = { eu5_control_actor }`, enters
 `scope:eu5_control_actor`, and reads the identifier through
-`SCOPE.sCountry('eu5_control_actor').GetTag`. This follows the shipped
+`SCOPE.sCountry('eu5_control_actor').GetKey`. This follows the shipped
 scripted-GUI saved-scope bridge instead of trying to reconstruct the player
 from synchronous localization. The remaining country exporters still use the
 earlier effect-root plus `save_temporary_scope_as` bridge and are deliberately
@@ -130,15 +130,12 @@ buttons nonfunctional. Version 0.2.2 therefore has no window callback. Press
 the fixed **Emit ping** button after visually verifying the panel to obtain the
 health acknowledgement.
 
-Version 0.2.3 also matches the shipped scripted-GUI registration shape: all entries except nation summary contain only
-`effect = { ... }`. Nation summary
-adds one fixed `saved_scopes = { eu5_control_actor }` registration so its GUI
-button can pass the player country through the shipped named-scope bridge.
-Live 0.2.2 testing proved that the window and physical clicks worked but
-entries carrying the optional `scope`, `is_shown`, and `is_valid` fields did
-not dispatch. Those fields remain absent. No other procedure may register or
-receive a named scope. The bridge still exposes exactly the eight fixed
-read-only procedures listed above and no generic effect route.
+Version 0.2.3 also matches the shipped scripted-GUI registration shape: each
+named entry contains only `effect = { ... }`. Live 0.2.2 testing proved that
+the window and physical clicks worked but entries carrying the optional
+`scope`, `is_shown`, and `is_valid` fields did not dispatch. Those fields have
+been removed. The bridge now exposes exactly the eight fixed read-only
+procedures listed above and no generic effect route.
 
 EU5 1.3 does not expose a documented, narrow mod hook that can attach a new
 top-level widget to an already loaded normal-game HUD without replacing a base
